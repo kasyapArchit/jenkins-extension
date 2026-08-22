@@ -114,7 +114,12 @@ subscribing has no other route.
 list cannot do: it only knows about builds this extension asked for. The bell sits beside the
 padlock on starred cards and on search rows, so the two things that change what a pipeline
 does without opening it are in one place, and a pipeline can be subscribed without being
-starred. Filled means subscribed.
+starred. Filled means subscribed. Both sit at the far end of the row so the caret stays
+attached to the name.
+
+The footer counts them next to the starred count, and that count is a button: a subscription
+is otherwise invisible unless you happen to be looking at the pipeline carrying it, so the
+list under the footer is the only place the whole set can be seen and unpicked.
 
 Each poll asks every subscription for `lastBuild[number,building,result,timestamp,duration]`
 and compares it with a watermark. A higher number is a start, a verdict on the number we were

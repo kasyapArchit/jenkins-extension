@@ -188,6 +188,7 @@ a:hover { text-decoration: underline; }
 .grip:active { cursor: grabbing; }
 .card-main { flex: 1; min-width: 0; cursor: pointer; }
 .card-title { display: flex; align-items: center; gap: 6px; }
+.title-tools { margin-left: auto; display: flex; align-items: center; gap: 8px; flex: none; }
 .card-name {
   font-size: 13.5px; font-weight: 650; letter-spacing: -.01em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -332,6 +333,32 @@ a:hover { text-decoration: underline; }
 }
 .linkish:hover { color: var(--text); }
 .ftr-status { font-size: 11px; color: var(--faint); flex: none; }
+/* Reads as part of the status line until you notice it responds. */
+.count-btn {
+  border: 0; background: transparent; padding: 0; font: inherit;
+  color: var(--faint); text-decoration: underline; text-underline-offset: 2px;
+  text-decoration-color: var(--line);
+}
+.count-btn:hover, .count-btn.on { color: var(--accent); text-decoration-color: currentColor; }
+
+.subs-list {
+  display: flex; flex-direction: column; gap: 2px;
+  max-height: 132px; overflow-y: auto;
+}
+.subs-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 6px; border-radius: 7px; background: var(--sunk);
+}
+.subs-name {
+  flex: 1; min-width: 0; font-size: 11.5px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.subs-open, .subs-off {
+  flex: none; border: 0; padding: 0; background: transparent; color: var(--faint);
+  width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
+}
+.subs-open:hover { color: var(--text); }
+.subs-off:hover { color: var(--fail); }
 .ftr-err { font-size: 11px; color: var(--fail); }
 
 /* ---------- connection banner ---------- */

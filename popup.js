@@ -28,6 +28,7 @@ const ui = {
   openId: null,
   openResult: null,       // search result whose parameter panel is expanded
   addOpen: false,
+  subsOpen: false,        // the subscribed-pipelines list under the footer
   connection: 'checking',     // checking | online | offline | unauthorized
   worker: 'ok',               // ok | stale | silent
   activeResult: 0,
@@ -668,10 +669,14 @@ function pipelineCard(p) {
           textContent: qualifiedName(p.fullName, p.name),
           title: p.fullName || p.name
         }),
-        bellButton(p, renderStarred),
-        lockButton(p, renderStarred),
         // One chevron rotated by CSS rather than two swapped: a swap cannot animate.
-        el('span', { class: 'caret' }, icon('chevron-right', { size: 12 }))
+        el('span', { class: 'caret' }, icon('chevron-right', { size: 12 })),
+        // Pushed to the far end by .title-tools, so the caret stays attached to
+        // the name and the two toggles read as one group.
+        el('div', { class: 'title-tools' }, [
+          bellButton(p, renderStarred),
+          lockButton(p, renderStarred)
+        ])
       ]),
       el('div', { class: 'card-summary', textContent: summaryFor(p) })
     ]),
@@ -882,6 +887,7 @@ function bellButton(p, rerender) {
         ? await store.unsubscribe(p.id)
         : await store.subscribe({ id: p.id, url: p.url, name: p.name, fullName: p.fullName });
       rerender();
+      renderFooter();
     }
   }, icon('bell', { size: 12, fill: on }));
 }
@@ -1015,14 +1021,59 @@ async function triggerPipeline(p) {
 
 function renderFooter() {
   const running = runs.filter(store.isActive).length;
-  const parts = [`${starred.length} starred`];
-  if (running) parts.push(`${running} running`);
-  $('#status-line').textContent = parts.join(' · ');
+  const line = clear($('#status-line'));
+  line.append(document.createTextNode(`${starred.length} starred`));
+
+  // The one count worth clicking. A subscription is invisible unless you happen
+  // to be looking at the pipeline it is on, so this is the only place the whole
+  // set can be seen and unpicked.
+  if (subscribed.length) {
+    line.append(document.createTextNode(' · '), el('button', {
+      class: `count-btn${ui.subsOpen ? ' on' : ''}`,
+      textContent: `${subscribed.length} subscribed`,
+      title: ui.subsOpen ? 'Hide the list' : 'Show everything you are subscribed to',
+      onclick: () => { ui.subsOpen = !ui.subsOpen; renderFooter(); }
+    }));
+  } else {
+    ui.subsOpen = false;
+  }
+  if (running) line.append(document.createTextNode(` · ${running} running`));
+
+  renderSubsList();
 
   const toggle = clear($('#add-toggle'));
   toggle.append(icon(ui.addOpen ? 'minus' : 'plus', { size: 12 }),
     document.createTextNode(ui.addOpen ? 'Hide URL field' : 'Add pipeline by URL'));
   $('#add-row').hidden = !ui.addOpen;
+}
+
+function renderSubsList() {
+  const host = clear($('#subs-list'));
+  host.hidden = !ui.subsOpen;
+  if (!ui.subsOpen) return;
+
+  for (const p of subscribed) {
+    host.append(el('div', { class: 'subs-row' }, [
+      el('span', {
+        class: 'subs-name',
+        textContent: qualifiedName(p.fullName, p.name),
+        title: p.fullName || p.name
+      }),
+      el('button', {
+        class: 'subs-open', title: 'Open this pipeline in a new tab',
+        onclick: () => chrome.tabs.create({ url: p.url })
+      }, icon('external-link', { size: 11 })),
+      el('button', {
+        class: 'subs-off', title: 'Stop being notified about this pipeline',
+        onclick: async () => {
+          subscribed = await store.unsubscribe(p.id);
+          renderStarred();
+          renderResults();
+          renderFooter();
+        }
+      }, icon('x', { size: 12 }))
+    ]));
+  }
 }
 
 function toggleAdd() {
@@ -1089,6 +1140,7 @@ async function onStorageChanged(changes, area) {
     subscribed = changes.subscriptions.newValue || [];
     renderStarred();
     renderResults();
+    renderFooter();
   }
   if (area === 'sync' && changes.blocked) {
     blocked = changes.blocked.newValue || [];
