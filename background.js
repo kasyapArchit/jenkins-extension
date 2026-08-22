@@ -1,7 +1,7 @@
 import * as store from './lib/store.js';
 import * as jenkins from './lib/jenkins.js';
 import { BUILD } from './lib/build.js';
-import { qualifiedName } from './lib/format.js';
+import { qualifiedName, buildLabel } from './lib/format.js';
 
 const ALARM = 'poll-runs';
 const GIVE_UP_MS = 3 * 60 * 60 * 1000;   // stop chasing a run after three hours
@@ -138,16 +138,21 @@ async function advance(run, config) {
 
   if (run.status === 'RUNNING' && run.url) {
     const build = await jenkins.getBuild(run.url, config);
+    // Pipelines rename themselves partway through, so this is re-read on every
+    // poll rather than captured once when the build started.
+    const version = { displayName: build.displayName ?? run.displayName ?? null };
+
     if (build.building) {
       await store.updateRun(run.id, {
+        ...version,
         estimatedDuration: build.estimatedDuration,
         buildStartedAt: build.timestamp || run.buildStartedAt
       });
       return;
     }
     const status = build.result || 'UNKNOWN';
-    await store.updateRun(run.id, { status, finishedAt: Date.now() });
-    await announce({ ...run, status }, config);
+    await store.updateRun(run.id, { ...version, status, finishedAt: Date.now() });
+    await announce({ ...run, ...version, status }, config);
   }
 }
 
@@ -156,7 +161,7 @@ async function announce(run, config) {
   chrome.notifications.create(`${run.id}::done`, {
     type: 'basic',
     iconUrl: 'icons/128-mark.png',
-    title: `${qualifiedName(run.fullName, run.name)}${run.build ? ` #${run.build}` : ''} ${run.status}`,
+    title: `${qualifiedName(run.fullName, run.name)} ${buildLabel(run)} ${run.status}`.replace(/\s+/g, ' ').trim(),
     message: run.status === 'SUCCESS' ? 'Build finished successfully.' : `Build finished: ${run.status}`,
     priority: run.status === 'SUCCESS' ? 0 : 2
   });

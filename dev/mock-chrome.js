@@ -188,7 +188,9 @@ areas.local.runs = EMPTY ? [] : [
   { id: 'r1', jobId: starred[0].id, name: 'QA', build: 527, fullName: 'Frontend/QA', url: starred[0].url + '/527',
     params: { CLEAN_INSTALL: true, DELETE_YARN_CACHE_DIR: false, BRANCH: 'develop', BUILD_CMD: 'qaStaging' },
     status: 'RUNNING', startedAt: Date.now() - 119000, buildStartedAt: Date.now() - 119000 },
-  { id: 'r2', jobId: starred[0].id, name: 'QA', build: 525, fullName: 'Frontend/QA', url: starred[0].url + '/525',
+  // A pipeline that renamed itself to its version partway through the build.
+  { id: 'r2', jobId: starred[0].id, name: 'QA', build: 525, fullName: 'Frontend/QA',
+    displayName: '9.2.1', url: starred[0].url + '/525',
     params: { CLEAN_INSTALL: false, BRANCH: 'release/9.2', BUILD_CMD: 'qaProd' },
     status: 'SUCCESS', startedAt: Date.now() - 1080000, finishedAt: Date.now() - 1020000 },
   { id: 'r3', jobId: starred[1].id, name: 'web-prod-deploy', build: 88, fullName: 'Frontend/web-prod-deploy', url: starred[1].url + '/88',

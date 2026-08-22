@@ -3,7 +3,7 @@ import * as jenkins from './lib/jenkins.js';
 import { icon } from './lib/icons.js';
 import { BUILD } from './lib/build.js';
 import { $, el, clear, elapsed, ago } from './lib/dom.js';
-import { qualifiedName } from './lib/format.js';
+import { qualifiedName, buildLabel } from './lib/format.js';
 
 const MAX_RESULTS = 7;
 const SEARCH_DEBOUNCE_MS = 200;
@@ -474,7 +474,13 @@ function runCard(run) {
           textContent: qualifiedName(run.fullName, run.name),
           title: run.fullName || run.name
         }),
-        run.build ? el('span', { class: 'run-build', textContent: `#${run.build}` }) : null,
+        buildLabel(run)
+          ? el('span', {
+              class: 'run-build',
+              textContent: buildLabel(run),
+              title: run.build ? `Build #${run.build}` : ''
+            })
+          : null,
         el('span', { class: 'run-time', textContent: runTime(run) })
       ]),
       run.status === 'ERROR'

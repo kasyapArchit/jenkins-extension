@@ -15,7 +15,7 @@ const run = newRun({
 
 // Every field the popup reads must be present, params included.
 for (const field of ['id', 'jobId', 'name', 'fullName', 'jobUrl', 'queueUrl', 'url', 'build',
-                     'status', 'params', 'startedAt', 'finishedAt', 'error']) {
+                     'displayName', 'status', 'params', 'startedAt', 'finishedAt', 'error']) {
   check(`has ${field}`, field in run);
 }
 
@@ -25,6 +25,7 @@ check('id is stable for a given clock', run.id === 'https://ci/job/A::1000');
 check('starts active', isActive(run));
 check('keeps the full path for the folder-qualified name', run.fullName === 'Webmail/A');
 check('full path defaults to null', newRun({ jobId: 'x' }).fullName === null);
+check('display name starts unset', run.displayName === null);
 
 const noQueue = newRun({ jobId: 'x', name: 'x', jobUrl: 'u', queueUrl: null, params: {} });
 check('running when there is no queue url', noQueue.status === 'RUNNING');

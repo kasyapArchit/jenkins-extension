@@ -44,6 +44,16 @@ build number and elapsed time on the first, the values the build ran with on the
 Names are folder-qualified, because several folders having a job called `QA` is normal and
 the bare name says nothing about which one ran. The eye button opens the build in a new tab.
 
+Where the build number sits, a version appears instead once the pipeline sets one. Every
+poll re-reads the build's `displayName`, which is what `currentBuild.displayName = "9.2.1"`
+writes and what Jenkins' own UI shows in place of `#N`. Until a pipeline sets it, Jenkins
+returns the default `#N` and the card shows the number as before. The build number stays in
+the tooltip either way.
+
+If your pipelines publish their version somewhere else, `currentBuild.description` or a
+named environment variable, that is a one-line change to the tree query in `getBuild()` and
+to `buildLabel()` in `lib/format.js`.
+
 The status word is deliberately absent. The dot already says running, succeeded or failed,
 so printing SUCCESS next to a green dot spends a line on nothing. Queued is the one state a
 colour cannot express, so it gets a ring instead of a filled dot, and the dot's tooltip
@@ -208,9 +218,10 @@ asked for.
       full path matches one of several configured patterns cannot be triggered from the
       extension. Multiple patterns allowed.
 
-- [ ] **Track a version number that changes mid-run.** Some pipelines set their version
-      during the build, so the poller should re-read it and update the run when it changes,
-      rather than keeping whatever was known at trigger time.
+- [x] **Track a version number that changes mid-run.** The poller re-reads the build's
+      `displayName` on every tick, so a version the pipeline sets partway through appears on
+      the card. See the note under Activity if your pipelines publish the version somewhere
+      other than `displayName`.
 
 - [x] **Icon in the notification.** `announce()` passes `iconUrl: 'icons/128-mark.png'`.
 
