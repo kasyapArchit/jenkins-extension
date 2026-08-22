@@ -51,7 +51,7 @@ globalThis.chrome = {
         const { newRun } = await import('../lib/store.js');
         runs.unshift({
           ...newRun({
-            jobId: msg.pipelineId, name: p.name, jobUrl: p.url,
+            jobId: msg.pipelineId, name: p.name, fullName: p.fullName, jobUrl: p.url,
             queueUrl: null, params: msg.persist ?? msg.params
           }),
           url: `${p.url}/${++BUILD}`, build: BUILD
@@ -71,6 +71,7 @@ globalThis.chrome = {
     }
   },
   permissions: { request: async () => true },
+  tabs: { create: ({ url }) => console.log('[mock] open tab', url) },
   action: { setBadgeText: async () => {}, setBadgeBackgroundColor: async () => {} }
 };
 
@@ -184,19 +185,19 @@ areas.sync.paramValues = EMPTY ? {} : {
   [starred[0].id]: { CLEAN_INSTALL: false, DELETE_YARN_CACHE_DIR: false, BRANCH: 'develop', BUILD_CMD: 'qaStaging' }
 };
 areas.local.runs = EMPTY ? [] : [
-  { id: 'r1', jobId: starred[0].id, name: 'QA', build: 527, url: starred[0].url + '/527',
+  { id: 'r1', jobId: starred[0].id, name: 'QA', build: 527, fullName: 'Frontend/QA', url: starred[0].url + '/527',
     params: { CLEAN_INSTALL: true, DELETE_YARN_CACHE_DIR: false, BRANCH: 'develop', BUILD_CMD: 'qaStaging' },
     status: 'RUNNING', startedAt: Date.now() - 119000, buildStartedAt: Date.now() - 119000 },
-  { id: 'r2', jobId: starred[0].id, name: 'QA', build: 525, url: starred[0].url + '/525',
+  { id: 'r2', jobId: starred[0].id, name: 'QA', build: 525, fullName: 'Frontend/QA', url: starred[0].url + '/525',
     params: { CLEAN_INSTALL: false, BRANCH: 'release/9.2', BUILD_CMD: 'qaProd' },
     status: 'SUCCESS', startedAt: Date.now() - 1080000, finishedAt: Date.now() - 1020000 },
-  { id: 'r3', jobId: starred[1].id, name: 'web-prod-deploy', build: 88, url: starred[1].url + '/88',
+  { id: 'r3', jobId: starred[1].id, name: 'web-prod-deploy', build: 88, fullName: 'Frontend/web-prod-deploy', url: starred[1].url + '/88',
     params: { BRANCH: 'master', TARGET: 'prod-eu' },
     status: 'FAILURE', startedAt: Date.now() - 7500000, finishedAt: Date.now() - 7200000 },
-  { id: 'r4', jobId: starred[2].id, name: 'Storybook-Deploy', build: null, url: null,
+  { id: 'r4', jobId: starred[2].id, name: 'Storybook-Deploy', fullName: 'Frontend/Storybook-Deploy', build: null, url: null,
     params: { BRANCH: 'feature/design-tokens' }, why: 'Waiting for next available executor',
     status: 'QUEUED', startedAt: Date.now() - 42000 },
-  { id: 'r5', jobId: starred[1].id, name: 'web-prod-deploy', build: null, url: null,
+  { id: 'r5', jobId: starred[1].id, name: 'web-prod-deploy', fullName: 'Frontend/web-prod-deploy', build: null, url: null,
     status: 'ERROR', error: 'Not permitted. The account may lack Build permission on this job.',
     startedAt: Date.now() - 300000, finishedAt: Date.now() - 300000 }
 ];

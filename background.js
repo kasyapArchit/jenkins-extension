@@ -1,6 +1,7 @@
 import * as store from './lib/store.js';
 import * as jenkins from './lib/jenkins.js';
 import { BUILD } from './lib/build.js';
+import { qualifiedName } from './lib/format.js';
 
 const ALARM = 'poll-runs';
 const GIVE_UP_MS = 3 * 60 * 60 * 1000;   // stop chasing a run after three hours
@@ -77,6 +78,7 @@ async function trigger(pipelineId, params, persist, job) {
   const run = await store.addRun(store.newRun({
     jobId: pipelineId,
     name: pipeline.name,
+    fullName: pipeline.fullName ?? null,
     jobUrl: pipeline.url,
     queueUrl,
     params: persist ?? params
@@ -154,7 +156,7 @@ async function announce(run, config) {
   chrome.notifications.create(`${run.id}::done`, {
     type: 'basic',
     iconUrl: 'icons/128-mark.png',
-    title: `${run.name}${run.build ? ` #${run.build}` : ''} ${run.status}`,
+    title: `${qualifiedName(run.fullName, run.name)}${run.build ? ` #${run.build}` : ''} ${run.status}`,
     message: run.status === 'SUCCESS' ? 'Build finished successfully.' : `Build finished: ${run.status}`,
     priority: run.status === 'SUCCESS' ? 0 : 2
   });

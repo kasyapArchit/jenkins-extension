@@ -3,6 +3,7 @@ import * as jenkins from './lib/jenkins.js';
 import { icon } from './lib/icons.js';
 import { BUILD } from './lib/build.js';
 import { $, el, clear, elapsed, ago } from './lib/dom.js';
+import { qualifiedName } from './lib/format.js';
 
 const MAX_RESULTS = 7;
 const SEARCH_DEBOUNCE_MS = 200;
@@ -453,9 +454,9 @@ function runCard(run) {
   }
   if (run.url) {
     buttons.push(el('button', {
-      class: 'run-icon-btn', title: 'Copy build URL',
-      onclick: e => copyUrl(run.url, e.currentTarget)
-    }, icon('copy', { size: 12 })));
+      class: 'run-icon-btn', title: 'Open this build in a new tab',
+      onclick: () => chrome.tabs.create({ url: run.url })
+    }, icon('eye', { size: 13 })));
   }
   if (!active) {
     buttons.push(el('button', {
@@ -468,7 +469,11 @@ function runCard(run) {
     dot,
     el('div', { class: 'run-text' }, [
       el('div', { class: 'run-head' }, [
-        el('span', { class: 'run-name', textContent: run.name }),
+        el('span', {
+          class: 'run-name',
+          textContent: qualifiedName(run.fullName, run.name),
+          title: run.fullName || run.name
+        }),
         run.build ? el('span', { class: 'run-build', textContent: `#${run.build}` }) : null,
         el('span', { class: 'run-time', textContent: runTime(run) })
       ]),
@@ -540,12 +545,6 @@ async function abortRun(run, btn) {
   renderFooter();
 }
 
-async function copyUrl(url, btn) {
-  try { await navigator.clipboard.writeText(url); } catch { return; }
-  clear(btn).append(icon('check', { size: 12 }));
-  setTimeout(() => { clear(btn).append(icon('copy', { size: 12 })); }, 1200);
-}
-
 /* ---------- starred ---------- */
 
 function renderStarred() {
@@ -598,7 +597,11 @@ function pipelineCard(p) {
       onclick: () => { ui.openId = open ? null : p.id; renderStarred(); }
     }, [
       el('div', { class: 'card-title' }, [
-        el('span', { class: 'card-name', textContent: p.name }),
+        el('span', {
+          class: 'card-name',
+          textContent: qualifiedName(p.fullName, p.name),
+          title: p.fullName || p.name
+        }),
         el('span', { class: 'caret' }, icon(open ? 'chevron-down' : 'chevron-right', { size: 12 }))
       ]),
       el('div', { class: 'card-summary', textContent: summaryFor(p) })
@@ -772,7 +775,7 @@ async function triggerPipeline(p) {
     params,
     persist,
     // Sent so the worker can run a pipeline that was never starred.
-    job: { id: p.id, url: p.url, name: p.name }
+    job: { id: p.id, url: p.url, name: p.name, fullName: p.fullName }
   }).catch(err => ({ ok: false, error: err.message }));
 
   ui.busy.delete(p.id);

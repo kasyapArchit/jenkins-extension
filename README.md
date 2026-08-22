@@ -41,6 +41,8 @@ reorder.
 
 **Activity** shows everything triggered from the extension. Each card is two lines: name,
 build number and elapsed time on the first, the values the build ran with on the second.
+Names are folder-qualified, because several folders having a job called `QA` is normal and
+the bare name says nothing about which one ran. The eye button opens the build in a new tab.
 
 The status word is deliberately absent. The dot already says running, succeeded or failed,
 so printing SUCCESS next to a green dot spends a line on nothing. Queued is the one state a
@@ -222,12 +224,12 @@ asked for.
 - [x] **Clicking the notification opens the run.** Handled in the
       `chrome.notifications.onClicked` listener.
 
-- [ ] **An eye button next to copy.** Opens the build in a new tab directly, saving the
-      copy-then-paste round trip.
+- [x] **An eye button that opens the build.** It replaced the copy button rather than
+      joining it, since copying a URL was only ever a means of opening it.
 
-- [ ] **Show the first parent folder in the pipeline name.** `Webmail/QA` rather than bare
-      `QA`, since several folders each have a job called QA and the run cards are currently
-      ambiguous about which one ran.
+- [x] **Show the parent folder in the pipeline name.** `Webmail/QA` rather than bare `QA`,
+      on run cards, starred cards and notification titles. `qualifiedName()` in
+      `lib/format.js`; the full path is in the tooltip.
 
 - [ ] **Re-run a finished run with the same parameters.** An icon button on finished run
       cards, sitting with copy and dismiss, that triggers the same pipeline again with

@@ -9,12 +9,12 @@ const check = (name, cond) => { if (!cond) { failed++; console.error(`FAIL ${nam
 
 const params = { BRANCH: 'develop', CLEAN: false, CMD: 'qaStaging' };
 const run = newRun({
-  jobId: 'https://ci/job/A', name: 'A', jobUrl: 'https://ci/job/A',
+  jobId: 'https://ci/job/A', name: 'A', fullName: 'Webmail/A', jobUrl: 'https://ci/job/A',
   queueUrl: 'https://ci/queue/item/9/', params, now: 1000
 });
 
 // Every field the popup reads must be present, params included.
-for (const field of ['id', 'jobId', 'name', 'jobUrl', 'queueUrl', 'url', 'build',
+for (const field of ['id', 'jobId', 'name', 'fullName', 'jobUrl', 'queueUrl', 'url', 'build',
                      'status', 'params', 'startedAt', 'finishedAt', 'error']) {
   check(`has ${field}`, field in run);
 }
@@ -23,6 +23,8 @@ check('params round-trip', JSON.stringify(run.params) === JSON.stringify(params)
 check('queued when Jenkins gave a queue url', run.status === 'QUEUED');
 check('id is stable for a given clock', run.id === 'https://ci/job/A::1000');
 check('starts active', isActive(run));
+check('keeps the full path for the folder-qualified name', run.fullName === 'Webmail/A');
+check('full path defaults to null', newRun({ jobId: 'x' }).fullName === null);
 
 const noQueue = newRun({ jobId: 'x', name: 'x', jobUrl: 'u', queueUrl: null, params: {} });
 check('running when there is no queue url', noQueue.status === 'RUNNING');
