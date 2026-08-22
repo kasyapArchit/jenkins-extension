@@ -106,15 +106,15 @@ worker enforces exactly what the popup draws. The popup swapping the button is a
 affordance; `trigger()` in `background.js` checking again is the guard. A stale popup, a
 replay of an old run, or a message from anywhere else all hit the same refusal.
 
-The one thing blocking cannot currently do is block a pipeline from the search results
-before it is starred. The padlock only appears on a search row that is already blocked,
-because a row carrying star, padlock, name, time and Run inside 400px leaves the name
-nothing. Star it first, or write a pattern.
+The padlock only appears on a search row that is already blocked, so blocking a pipeline
+from search before starring it means writing a pattern. The bell is always there, since
+subscribing has no other route.
 
 **Subscribing** notifies you whenever a pipeline runs, whoever started it, which the run
-list cannot do: it only knows about builds this extension asked for. The bell is in the
-parameter panel, the one surface a starred card and a search result share, so a pipeline can
-be subscribed without being starred; a small bell on the collapsed row reports the state.
+list cannot do: it only knows about builds this extension asked for. The bell sits beside the
+padlock on starred cards and on search rows, so the two things that change what a pipeline
+does without opening it are in one place, and a pipeline can be subscribed without being
+starred. Filled means subscribed.
 
 Each poll asks every subscription for `lastBuild[number,building,result,timestamp,duration]`
 and compares it with a watermark. A higher number is a start, a verdict on the number we were

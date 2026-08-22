@@ -195,16 +195,14 @@ a:hover { text-decoration: underline; }
 /* The lock sits between the name and the caret, so it is read as belonging to
    the pipeline rather than to the row's controls. Open and faint is the resting
    state; shut and red is a warning, and meant to be seen at a glance. */
-/* Subscribing is a toggle in the panel; the mark on the row only reports it. */
+/* Beside the padlock and styled like it: same size, same resting colour. */
 .bell-btn {
   flex: none; padding: 0; border: 0; background: transparent; color: var(--faint);
-  width: 24px; height: 32px;
-  display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: center;
   transition: color var(--motion) var(--ease);
 }
 .bell-btn:hover { color: var(--text); }
 .bell-btn.on { color: var(--accent); }
-.bell-mark { flex: none; display: flex; color: var(--accent); }
 
 .lock-btn {
   flex: none; padding: 0; border: 0; background: transparent; color: var(--faint);

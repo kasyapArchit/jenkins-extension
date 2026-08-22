@@ -301,7 +301,7 @@ function renderResults() {
       // an unblocked pipeline is the normal case that needs no mark. Blocking
       // one from search therefore means starring it first, or writing a pattern.
       el('div', { class: 'result-text' }, [
-        bellMark(job.id),
+        bellButton(job, renderResults),
         held ? lockButton(job, renderResults) : null,
         el('div', {
           class: 'result-name',
@@ -668,7 +668,7 @@ function pipelineCard(p) {
           textContent: qualifiedName(p.fullName, p.name),
           title: p.fullName || p.name
         }),
-        bellMark(p.id),
+        bellButton(p, renderStarred),
         lockButton(p, renderStarred),
         // One chevron rotated by CSS rather than two swapped: a swap cannot animate.
         el('span', { class: 'caret' }, icon('chevron-right', { size: 12 }))
@@ -778,7 +778,7 @@ function paramPanel(p, isStarred = true) {
   });
   const sync = el('button', {
     class: 'outline-btn', title: 'Re-read parameters from Jenkins',
-    textContent: 'Sync',
+    textContent: 'Sync params',
     onclick: e => syncParams(p, e.currentTarget)
   });
   const starToggle = el('button', {
@@ -790,9 +790,7 @@ function paramPanel(p, isStarred = true) {
     })
   }, icon('star', { size: 13, fill: isStarred }));
 
-  const rerender = () => (isStarred ? renderStarred() : renderResults());
-  panel.append(el('div', { class: 'panel-actions' },
-    [trigger, sync, bellButton(p, rerender), starToggle]));
+  panel.append(el('div', { class: 'panel-actions' }, [trigger, sync, starToggle]));
 
   const err = ui.errors.get(p.id);
   if (err) panel.append(el('div', { class: 'field-error', textContent: err }));
@@ -866,19 +864,18 @@ async function syncParams(p, btn) {
 
 const isSubscribed = id => subscribed.some(p => p.id === id);
 
-// Lives in the expanded panel rather than on the row. The row is the same 400px
-// that already refused the padlock, and the panel is the one surface a starred
-// card and a search result share, so subscribing works without starring first.
+// Sits beside the padlock, so the two things that change what a pipeline does
+// without opening it are in one place. Filled means subscribed.
 function bellButton(p, rerender) {
   const on = isSubscribed(p.id);
-  const off = !anyWanted(config?.notifyOn);
+  const muted = on && !anyWanted(config?.notifyOn);
   return el('button', {
     class: `bell-btn${on ? ' on' : ''}`,
-    title: on
-      ? off
-        ? 'Subscribed, but every notification kind is switched off in settings.'
-        : 'Subscribed. Click to stop being notified about this pipeline.'
-      : 'Notify me whenever this pipeline runs, whoever starts it.',
+    title: muted
+      ? 'Subscribed, but every notification kind is switched off in settings.'
+      : on
+        ? 'Subscribed. Click to stop being notified about this pipeline.'
+        : 'Notify me whenever this pipeline runs, whoever starts it.',
     onclick: async e => {
       e.stopPropagation();
       subscribed = on
@@ -886,15 +883,8 @@ function bellButton(p, rerender) {
         : await store.subscribe({ id: p.id, url: p.url, name: p.name, fullName: p.fullName });
       rerender();
     }
-  }, icon('bell', { size: 13, fill: on }));
+  }, icon('bell', { size: 12, fill: on }));
 }
-
-// A mark, not a button: the collapsed row says a pipeline is watched, and the
-// panel is where that is changed.
-const bellMark = id => (isSubscribed(id)
-  ? el('span', { class: 'bell-mark', title: 'Subscribed to this pipeline' },
-      icon('bell', { size: 11, fill: true }))
-  : null);
 
 /* ---------- blocking ---------- */
 
