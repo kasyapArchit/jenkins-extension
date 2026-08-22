@@ -43,6 +43,13 @@ globalThis.chrome = {
     openOptionsPage: () => console.log('[mock] openOptionsPage'),
     async sendMessage(msg) {
       if (msg.type === 'trigger') {
+        const { blockReason } = await import('../lib/guard.js');
+        const target = (areas.sync.starred || []).find(x => x.id === msg.pipelineId) || msg.job;
+        const held = blockReason(target, {
+          blocked: areas.sync.blocked || [],
+          patterns: areas.sync.config.denyPatterns
+        });
+        if (held) return { ok: false, error: `${target.name} is ${held}.` };
         const runs = areas.local.runs || [];
         // Mirrors the worker: starred entry wins, otherwise the job the popup sent.
         const p = (areas.sync.starred || []).find(x => x.id === msg.pipelineId) || msg.job;
@@ -124,8 +131,14 @@ const PARAMS = {
 
 const json = body => new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
 
-globalThis.fetch = async url => {
+// Kept so anything that is not a Jenkins call still reaches the network. Without
+// it a harness page cannot load its own files, since this stub swallows every
+// request in the document.
+const realFetch = globalThis.fetch.bind(globalThis);
+
+globalThis.fetch = async (url, init) => {
   const u = String(url);
+  if (!u.includes('frontend-jenkins')) return realFetch(url, init);
   if (u.includes('/me/api/json')) return json({ id: 'a.kashyap', fullName: 'Archit Kashyap' });
 
   if (u.includes('/api/json') && u.includes('tree=jobs')) {
@@ -157,6 +170,7 @@ globalThis.fetch = async url => {
   return json({});
 };
 
+
 /* ---------- seed ---------- */
 
 const starredNames = ['QA', 'web-prod-deploy', 'Storybook-Deploy'];
@@ -174,13 +188,18 @@ const starred = starredNames.map(n => {
 
 areas.sync.config = {
   baseUrl: 'https://frontend-jenkins', authMode: 'token', userId: 'a.kashyap',
-  pollSeconds: 30, notify: true, searchDepth: 3
+  pollSeconds: 30, notify: true, searchDepth: 3,
+  // Catches web-prod-deploy, which is starred, so the pattern case is on screen.
+  denyPatterns: ['prod']
 };
 areas.local.token = 'mock';
 // ?empty exercises the fresh-profile state: nothing starred, nothing triggered.
 const EMPTY = new URLSearchParams(location.search).has('empty');
 
 areas.sync.starred = EMPTY ? [] : starred;
+// Storybook-Deploy is padlocked by hand, so both kinds of block are visible: one
+// the popup can lift, one only settings can.
+areas.sync.blocked = EMPTY ? [] : [starred[2].id];
 areas.sync.paramValues = EMPTY ? {} : {
   [starred[0].id]: { CLEAN_INSTALL: false, DELETE_YARN_CACHE_DIR: false, BRANCH: 'develop', BUILD_CMD: 'qaStaging' }
 };

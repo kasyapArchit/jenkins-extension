@@ -4,6 +4,7 @@ import { icon } from './lib/icons.js';
 import { BUILD } from './lib/build.js';
 import { $, el, clear, elapsed, ago } from './lib/dom.js';
 import { qualifiedName, buildLabel } from './lib/format.js';
+import { blockReason, isPatternBlock } from './lib/guard.js';
 
 const MAX_RESULTS = 7;
 const SEARCH_DEBOUNCE_MS = 200;
@@ -11,6 +12,7 @@ const SEARCH_DEBOUNCE_MS = 200;
 let config = null;
 let starred = [];
 let paramValues = {};
+let blocked = [];             // pipeline ids blocked by hand
 let runs = [];
 let index = null;             // flat job list, null until loaded
 let indexError = null;
@@ -37,8 +39,9 @@ const ui = {
 init();
 
 async function init() {
-  [config, starred, paramValues, runs] = await Promise.all([
-    store.getConfig(), store.getStarred(), store.getAllParamValues(), store.getRuns()
+  [config, starred, paramValues, blocked, runs] = await Promise.all([
+    store.getConfig(), store.getStarred(), store.getAllParamValues(),
+    store.getBlocked(), store.getRuns()
   ]);
 
   mountChrome();
@@ -274,12 +277,15 @@ function renderResults() {
       onclick: e => { e.stopPropagation(); toggleStar(job); }
     }, icon('star', { size: 14, fill: on }));
 
+    const held = whyBlocked(job);
     const runBtn = el('button', {
-      class: 'run-btn compact',
-      textContent: busy ? '…' : 'Run',
-      disabled: busy,
-      title: 'Trigger with the saved or default parameters',
-      onclick: e => { e.stopPropagation(); runJob(job); }
+      class: `run-btn compact${held ? ' held' : ''}`,
+      textContent: held ? 'Open' : busy ? '…' : 'Run',
+      disabled: !held && busy,
+      title: held
+        ? `Cannot be triggered — ${held}. Opens the job in Jenkins.`
+        : 'Trigger with the saved or default parameters',
+      onclick: e => { e.stopPropagation(); held ? openInJenkins(job) : runJob(job); }
     });
 
     const row = el('div', {
@@ -288,12 +294,18 @@ function renderResults() {
       onmouseenter: () => { ui.activeResult = i; highlightResults(); }
     }, [
       starBtn,
-      el('div', { class: 'result-text' },
+      // The lock appears here only when it has something to say. A row carrying
+      // star, lock, name, time and Run inside 400px leaves the name nothing, and
+      // an unblocked pipeline is the normal case that needs no mark. Blocking
+      // one from search therefore means starring it first, or writing a pattern.
+      el('div', { class: 'result-text' }, [
+        held ? lockButton(job, renderResults) : null,
         el('div', {
           class: 'result-name',
           textContent: qualifiedName(job.fullName, job.name),
           title: job.fullName || job.name
-        })),
+        })
+      ]),
       el('div', {
         class: 'result-last',
         textContent: job.lastBuildAt ? `${ago(job.lastBuildAt)} ago` : 'never run'
@@ -369,6 +381,9 @@ async function toggleResult(job) {
 }
 
 async function runJob(job) {
+  // Checked before the round trip for definitions, so Enter on a blocked result
+  // does what its Run button does rather than fetching and then refusing.
+  if (whyBlocked(job)) { openInJenkins(job); return; }
   const p = await loadMeta(job);
   if (!p) { renderResults(); return; }
   triggerPipeline(p);
@@ -472,9 +487,14 @@ function runCard(run) {
     }, icon('eye', { size: 13 })));
   }
   if (!active && run.jobUrl) {
+    // A replay is still a trigger, so it answers to the same guard.
+    const held = whyBlocked({ id: run.jobId, fullName: run.fullName, name: run.name });
     buttons.push(el('button', {
-      class: 'run-icon-btn', title: 'Run again with these same parameters',
-      disabled: ui.busy.has(run.id),
+      class: 'run-icon-btn',
+      title: held
+        ? `Cannot be triggered — ${held}.`
+        : 'Run again with these same parameters',
+      disabled: Boolean(held) || ui.busy.has(run.id),
       onclick: () => rerun(run)
     }, icon('rotate-cw', { size: 13 })));
   }
@@ -616,11 +636,13 @@ function pipelineCard(p) {
   });
   card.addEventListener('dragend', () => { card.draggable = false; persistOrder(); });
 
+  const reason = whyBlocked(p);
   const runBtn = el('button', {
-    class: 'run-btn',
-    textContent: ui.busy.has(p.id) ? 'Starting…' : 'Run',
-    disabled: ui.busy.has(p.id),
-    onclick: e => { e.stopPropagation(); triggerPipeline(p); }
+    class: `run-btn${reason ? ' held' : ''}`,
+    textContent: reason ? 'Open' : ui.busy.has(p.id) ? 'Starting…' : 'Run',
+    disabled: !reason && ui.busy.has(p.id),
+    title: reason ? `Cannot be triggered — ${reason}. Opens the job in Jenkins.` : '',
+    onclick: e => { e.stopPropagation(); reason ? openInJenkins(p) : triggerPipeline(p); }
   });
 
   card.append(el('div', { class: 'card-row' }, [
@@ -643,6 +665,7 @@ function pipelineCard(p) {
           textContent: qualifiedName(p.fullName, p.name),
           title: p.fullName || p.name
         }),
+        lockButton(p, renderStarred),
         // One chevron rotated by CSS rather than two swapped: a swap cannot animate.
         el('span', { class: 'caret' }, icon('chevron-right', { size: 12 }))
       ]),
@@ -741,11 +764,13 @@ function paramPanel(p, isStarred = true) {
     panel.append(paramField(d, values[d.name], v => write(d.name, v)));
   }
 
+  const reason = whyBlocked(p);
   const trigger = el('button', {
-    class: 'trigger-btn',
-    textContent: ui.busy.has(p.id) ? 'Starting…' : 'Trigger build',
-    disabled: ui.busy.has(p.id),
-    onclick: () => triggerPipeline(p)
+    class: `trigger-btn${reason ? ' held' : ''}`,
+    textContent: reason ? 'Open in Jenkins' : ui.busy.has(p.id) ? 'Starting…' : 'Trigger build',
+    disabled: !reason && ui.busy.has(p.id),
+    title: reason ? `Cannot be triggered — ${reason}.` : '',
+    onclick: () => reason ? openInJenkins(p) : triggerPipeline(p)
   });
   const sync = el('button', {
     class: 'outline-btn', title: 'Re-read parameters from Jenkins',
@@ -831,6 +856,41 @@ async function syncParams(p, btn) {
   }
 }
 
+/* ---------- blocking ---------- */
+
+// Null when the pipeline may be triggered, otherwise the reason, ready to print.
+const whyBlocked = p => blockReason(p, { blocked, patterns: config?.denyPatterns });
+
+// The lock beside a pipeline's name. Always shown on a starred card, so the
+// guard is discoverable and its state readable without expanding anything.
+// Pattern blocks are shown but not liftable: a deny-list you can click away on
+// the card it is protecting is not a deny-list.
+function lockButton(p, rerender) {
+  const reason = whyBlocked(p);
+  const fromPattern = isPatternBlock(reason);
+  return el('button', {
+    class: `lock-btn${reason ? ' on' : ''}`,
+    disabled: fromPattern,
+    title: fromPattern
+      ? `Cannot be triggered — ${reason}. Edit the pattern in settings to lift it.`
+      : reason
+        ? 'Blocked. Click to allow triggering again.'
+        : 'Allow triggering. Click to block it.',
+    onclick: async e => {
+      e.stopPropagation();
+      blocked = await store.setBlocked(p.id, !reason);
+      rerender();
+    }
+  }, icon(reason ? 'lock' : 'lock-open', { size: 12 }));
+}
+
+// What the Run button becomes when a pipeline is blocked. The point of the
+// block is that you go and look at the job in Jenkins instead of firing it from
+// a popup, so the button takes you there rather than going dead.
+function openInJenkins(p) {
+  chrome.tabs.create({ url: p.url });
+}
+
 /* ---------- triggering ---------- */
 
 function stripSecrets(defs, values) {
@@ -872,6 +932,15 @@ async function rerun(run) {
 
 async function triggerPipeline(p) {
   if (ui.busy.has(p.id)) return;
+  // Every button that reaches here has already been swapped for one that opens
+  // Jenkins, so this only catches a keyboard path or a render that went stale
+  // mid-click. The worker checks again regardless.
+  const reason = whyBlocked(p);
+  if (reason) {
+    ui.errors.set(p.id, `Cannot be triggered — ${reason}.`);
+    renderAll();
+    return;
+  }
   const fromSearch = Boolean(ui.query.trim());
   ui.busy.add(p.id);
   ui.errors.delete(p.id);
@@ -986,8 +1055,17 @@ async function onStorageChanged(changes, area) {
   if (area === 'sync' && changes.paramValues) {
     paramValues = changes.paramValues.newValue || {};
   }
+  if (area === 'sync' && changes.blocked) {
+    blocked = changes.blocked.newValue || [];
+    renderStarred();
+    renderResults();
+  }
   if (area === 'sync' && changes.config) {
     config = await store.getConfig();
     renderHeader();
+    // Deny patterns are config, and editing them in settings changes which
+    // pipelines are blocked without touching any pipeline.
+    renderStarred();
+    renderResults();
   }
 }

@@ -25,7 +25,14 @@
       width: 100%; height: 32px; border: 1px solid var(--line); border-radius: 8px;
       background: var(--sunk); padding: 0 9px; font-size: 12.5px; outline: none;
     }
-    input:focus, select:focus { border-color: var(--accent); }
+    textarea {
+      width: 100%; border: 1px solid var(--line); border-radius: 8px; resize: vertical;
+      background: var(--sunk); padding: 7px 9px; font-size: 12.5px; outline: none;
+      color: inherit; line-height: 1.6;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    .hint.ok { color: var(--ok); }
+    .hint.err { color: var(--fail); }
     .mono { font-family: var(--mono); }
     .inline { display: flex; align-items: center; gap: 9px; }
     .inline input[type=checkbox] { width: 15px; height: 15px; accent-color: var(--accent); margin: 0; }
@@ -112,6 +119,62 @@
         <label for="searchDepth">Folder depth to index</label>
         <input id="searchDepth" type="number" min="1" max="6" step="1">
         <div class="hint">How many levels of Jenkins folders the pipeline search walks. Raise it if jobs are nested deeply; lower it if the first search is slow. The list is cached for the browser session.</div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>BLOCK TRIGGERING</legend>
+      <p class="lede" style="margin-bottom:14px">
+        A safety net for the pipelines you never want to start by accident from a popup.
+        A blocked pipeline still appears everywhere it did before, but its <b>Run</b> button
+        becomes <b>Open</b> and takes you to the job in Jenkins instead of building it.
+      </p>
+      <div class="note" style="margin-bottom:14px">
+        There are two ways to block one, and they work independently. For a single pipeline,
+        click the padlock beside its name in the popup. For a rule that covers pipelines you
+        have not starred, or that do not exist yet, write a pattern below.
+      </div>
+
+      <div class="field">
+        <label for="denyPatterns">Never trigger pipelines matching these patterns</label>
+        <textarea id="denyPatterns" class="mono" rows="4"
+                  spellcheck="false" placeholder="prod&#10;^Release/"></textarea>
+        <div class="hint">
+          One pattern per line. Each is a JavaScript regular expression, matched against the
+          pipeline's full path such as <code>Frontend/web-prod-deploy</code>, ignoring case.
+          A pattern matches anywhere in the path unless you anchor it, so <code>prod</code>
+          blocks anything with "prod" in its name or its folder.
+        </div>
+        <div class="hint">
+          Useful pieces: <code>^</code> start of the path, <code>$</code> end,
+          <code>.</code> any character, <code>.*</code> any run of characters,
+          <code>|</code> either-or, <code>\.</code> a literal dot.
+        </div>
+        <div class="hint">
+          Examples &mdash; <code>prod</code> blocks every pipeline with "prod" anywhere.
+          <code>^Release/</code> blocks everything in the Release folder and nothing else.
+          <code>deploy$</code> blocks names that end in "deploy".
+          <code>prod|live|release</code> blocks any of the three.
+        </div>
+        <div id="deny-status" class="hint"></div>
+      </div>
+
+      <div class="field">
+        <label for="denyTest">Try a path against them</label>
+        <input id="denyTest" type="text" class="mono" placeholder="Frontend/web-prod-deploy">
+        <div class="hint">
+          Type any pipeline path to see whether these patterns would block it. Nothing is
+          saved, and the patterns above are used as they are currently typed.
+        </div>
+        <div id="deny-test-result" class="hint"></div>
+      </div>
+
+      <div class="note">
+        Patterns cannot be overridden from the popup: a pipeline blocked by a pattern shows a
+        padlock that will not open, and the only way to lift it is to change the pattern here.
+        A pipeline blocked by hand can be unblocked by clicking its padlock. Blocking is
+        enforced by the background script, not just by hiding the button, so a stale popup
+        cannot slip a build past it.
       </div>
     </fieldset>
 

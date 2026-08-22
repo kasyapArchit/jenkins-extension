@@ -87,6 +87,30 @@ the reveal runs rather than when the card renders, because a render can be disca
 its animation ever starts, which is what happens when a search result's parameters arrive a
 tick after the panel opens. Reduced-motion preferences cut the duration to 1ms.
 
+**Blocking** keeps a pipeline from being started by accident. A blocked one appears exactly
+where it did before, but its Run and Trigger build buttons become Open and take you to the
+job in Jenkins. Clicking the name still expands the parameters, so nothing becomes
+unreadable; only the build is withheld.
+
+There are two independent sources, and either one blocks. The padlock beside a pipeline's
+name blocks that one pipeline, and lives in `chrome.storage.sync` under `blocked` as a list
+of ids. Patterns in settings block by name, which is how a pipeline you have not starred, or
+one that does not exist yet, can be covered; they are `config.denyPatterns`, matched
+case-insensitively and unanchored against the full path. A pattern block cannot be lifted
+from the popup — its padlock is shown but does not open — because a deny-list you can click
+away on the card it is guarding is not a deny-list. Blocks survive unstarring, since
+unstarring is tidying and should not disarm a guard.
+
+The rule lives in `lib/guard.js`, which has no DOM or chrome dependency so the service
+worker enforces exactly what the popup draws. The popup swapping the button is an
+affordance; `trigger()` in `background.js` checking again is the guard. A stale popup, a
+replay of an old run, or a message from anywhere else all hit the same refusal.
+
+The one thing blocking cannot currently do is block a pipeline from the search results
+before it is starred. The padlock only appears on a search row that is already blocked,
+because a row carrying star, padlock, name, time and Run inside 400px leaves the name
+nothing. Star it first, or write a pattern.
+
 **Add by URL** at the bottom takes any Jenkins URL containing the job (build page, console,
 job page) and trims it down to the job path.
 
@@ -116,7 +140,8 @@ poll interval. Elapsed times still tick every second while the popup is open.
 
 | Data | Area | Why |
 |---|---|---|
-| `config` (base URL, user ID, poll interval, notify, search depth) | `sync` | follows your Chrome profile |
+| `config` (base URL, user ID, poll interval, notify, search depth, deny patterns) | `sync` | follows your Chrome profile |
+| `blocked` (pipeline ids blocked by hand) | `sync` | follows your Chrome profile |
 | `starred` (ordered), `paramValues` | `sync` | same |
 | `token` | `local` | see below |
 | `runs` | `local` | machine-specific, and noisy for sync quota |
@@ -174,12 +199,21 @@ included.
 `dev/preview.html` opens the popup in a normal browser tab with `dev/mock-chrome.js`
 stubbing the extension APIs and a fake Jenkins. No extension reload, no VPN.
 
+`dev/options-preview.html` does the same for the settings page. Rather than copying its
+markup, which is how the popup harness drifted from the worker once already, it lifts the
+real `options.html`'s style and sheet out of the file and imports `options.js` over them, so
+it cannot go stale.
+
 ```
 python3 -m http.server 8731
 open http://localhost:8731/dev/preview.html
+open http://localhost:8731/dev/options-preview.html
 ```
 
 Resize the window to 400×600 to match the real popup. Nothing in `dev/` ships.
+
+`mock-chrome.js` replaces `fetch`, but only answers URLs on the fake Jenkins host and passes
+everything else to the real one; without that a harness page cannot load its own files.
 
 The source design lives in `design_handoff_jenkins_launcher/`. Tokens in `popup.css` are
 copied from it verbatim; icons are inlined Lucide paths in `lib/icons.js` rather than the
@@ -232,13 +266,11 @@ picks the right endpoint and returns the queue URL.
 Checked items are already implemented; the rest are not started. In the order they were
 asked for.
 
-- [ ] **A toggle that blocks triggering.** With it on, Run and Trigger build open the
-      pipeline in a new tab instead of starting a build, so a release pipeline cannot go off
-      by accident from the popup.
+- [x] **A toggle that blocks triggering.** The padlock beside a pipeline's name. With it
+      shut, Run and Trigger build open the job in a new tab instead of starting a build.
 
-- [ ] **Regex deny-list for triggering.** Building on the toggle: any pipeline whose name or
-      full path matches one of several configured patterns cannot be triggered from the
-      extension. Multiple patterns allowed.
+- [x] **Regex deny-list for triggering.** Patterns in settings, matched against the full
+      path. Covers pipelines that are not starred and ones that do not exist yet.
 
 - [x] **Track a version number that changes mid-run.** The poller re-reads the build's
       `displayName` on every tick, so a version the pipeline sets partway through appears on

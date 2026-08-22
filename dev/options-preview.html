@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Jenkins Launcher settings — preview</title>
+  <link rel="stylesheet" href="../popup.css">
+</head>
+<body>
+  <!-- The settings page in a browser tab, against the fake chrome the popup
+       harness uses. Rather than copying options.html's markup, which is how the
+       popup harness drifted from the worker once already, this lifts the real
+       page's style and sheet out of the file itself, so it cannot go stale. -->
+  <script src="mock-chrome.js"></script>
+  <script type="module">
+    const html = await (await fetch('../options.html')).text();
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    document.head.append(...doc.head.querySelectorAll('style'));
+    document.body.append(doc.querySelector('.sheet'));
+    await import('../options.js');
+  </script>
+</body>
+</html>

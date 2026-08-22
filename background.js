@@ -2,6 +2,7 @@ import * as store from './lib/store.js';
 import * as jenkins from './lib/jenkins.js';
 import { BUILD } from './lib/build.js';
 import { qualifiedName, buildLabel } from './lib/format.js';
+import { blockReason } from './lib/guard.js';
 
 const ALARM = 'poll-runs';
 const GIVE_UP_MS = 3 * 60 * 60 * 1000;   // stop chasing a run after three hours
@@ -71,6 +72,16 @@ async function trigger(pipelineId, params, persist, job, remember = true) {
   const entry = (await store.getStarred()).find(p => p.id === pipelineId);
   const pipeline = entry || job;
   if (!pipeline?.url) throw new Error('That pipeline is no longer available.');
+
+  // Checked here and not only in the popup. The popup swaps its button for one
+  // that opens Jenkins, but that is an affordance, not a guard: a stale popup, a
+  // replay of an old run, or a message from anywhere else would still arrive
+  // here. This is the line the build cannot get past.
+  const reason = blockReason(pipeline, {
+    blocked: await store.getBlocked(),
+    patterns: config.denyPatterns
+  });
+  if (reason) throw new Error(`${qualifiedName(pipeline.fullName, pipeline.name)} is ${reason}.`);
 
   const queueUrl = await jenkins.triggerBuild(pipeline.url, params, config);
 

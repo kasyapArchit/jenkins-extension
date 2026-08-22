@@ -121,9 +121,9 @@ a:hover { text-decoration: underline; }
   display: flex; align-items: center; justify-content: center; color: var(--faint);
 }
 .star-btn.on { color: var(--accent); }
-.result-text { flex: 1; min-width: 0; }
+.result-text { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
 .result-name {
-  font-size: 13px; font-weight: 550;
+  font-size: 13px; font-weight: 550; min-width: 0;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .result-last { font-size: 11px; color: var(--faint); flex: none; }
@@ -192,6 +192,32 @@ a:hover { text-decoration: underline; }
   font-size: 13.5px; font-weight: 650; letter-spacing: -.01em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+/* The lock sits between the name and the caret, so it is read as belonging to
+   the pipeline rather than to the row's controls. Open and faint is the resting
+   state; shut and red is a warning, and meant to be seen at a glance. */
+.lock-btn {
+  flex: none; padding: 0; border: 0; background: transparent; color: var(--faint);
+  display: flex; align-items: center;
+  transition: color var(--motion) var(--ease);
+}
+.lock-btn:hover { color: var(--text); }
+.lock-btn.on { color: var(--fail); }
+/* A pattern block is not liftable here, so it does not offer a hover or a
+   pointer. Full strength, not dimmed: disabled describes the button, and the
+   block it reports is very much in force. */
+.lock-btn:disabled { cursor: default; opacity: 1; }
+.lock-btn.on:disabled:hover { color: var(--fail); }
+
+/* Blocked triggers keep their shape but drop the accent fill: still a button,
+   no longer the one that starts a build. */
+.run-btn.held, .trigger-btn.held {
+  background: transparent; color: var(--dim);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.run-btn.held:hover, .trigger-btn.held:hover {
+  filter: none; background: var(--hover); color: var(--text);
+}
+
 .caret {
   color: var(--faint); flex: none; display: flex;
   transition: transform var(--motion) var(--ease);
