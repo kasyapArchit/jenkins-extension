@@ -1,88 +1,128 @@
 # Jenkins Launcher
 
-A Manifest V3 Chrome extension that triggers starred Jenkins pipelines from the toolbar
-and tracks the resulting builds. No build step, no bundler. Load it unpacked and edit
-the files directly.
+A Manifest V3 Chrome extension that searches every pipeline on a Jenkins controller,
+triggers starred ones from the toolbar, and tracks the resulting builds. No build step,
+no bundler. Load it unpacked and edit the files directly.
 
 ## Install
 
 1. Open `chrome://extensions`, turn on Developer mode.
 2. Load unpacked, pick this directory.
 3. Click the toolbar icon, then the gear, and fill in:
-   - Jenkins base URL
+   - Jenkins base URL (include the context path if Jenkins is behind a proxy)
    - your Jenkins user ID
    - an API token from `<jenkins>/me/security`
-4. Hit Test connection. It should report the account it authenticated as.
+4. Hit Test connection. It reports the account it authenticated as and how many
+   pipelines it can see.
 
-Chrome will ask for permission to talk to your Jenkins host. That grant is why the
-manifest only asks for `optional_host_permissions` instead of a blanket origin.
+Chrome asks for permission to talk to your Jenkins host. That grant is why the manifest
+only declares `optional_host_permissions` instead of a blanket origin.
 
-## Starring a pipeline
+## Using it
 
-Paste any Jenkins URL that contains the job into the box at the bottom of the popup.
-A build URL, a console URL, or the job page all work. The extension trims it down to
-the job path and pulls the parameter definitions from
-`/api/json?tree=property[parameterDefinitions[...]]`.
+**Search** any non-empty query switches the popup into search mode and filters the whole
+controller's job list. Star a result to pin it, or press Enter to run it. The job index
+comes from one recursive `/api/json?tree=jobs[...]` call and is cached in
+`chrome.storage.session`, so typing is instant after the first load. Arrow keys move the
+selection, Enter runs a starred pipeline (or stars and opens an unstarred one, so a stray
+keypress never fires a build you have not seen the parameters for), Escape clears.
 
-## Running
+**Run** on a starred card fires immediately with the values from the last run, falling
+back to the job's defaults the first time. This is the one-click path. Clicking the card
+body opens the parameter form when you need to change something first. Drag the grip to
+reorder.
 
-- **Run** fires immediately using the last values you used, falling back to the job's
-  own defaults on the first run. This is the one-click path.
-- The caret opens the parameter form if you need to change something before triggering.
-- **Sync params** re-reads the definitions after someone edits the Jenkinsfile.
+**Activity** shows everything triggered from the extension. Running builds tick every
+second, can be aborted via `POST <build>/stop`, and every row can copy its build URL.
+Finished rows are dismissed one at a time.
 
-Password parameters are sent to Jenkins but never written to extension storage, so
-they are blank every time.
+**Add by URL** at the bottom takes any Jenkins URL containing the job (build page, console,
+job page) and trims it down to the job path.
+
+## Connection states
+
+The header dot reports what the last probe of `/me/api/json` found.
+
+| State | Dot | Meaning |
+|---|---|---|
+| Connected | green | reachable and authenticated |
+| No VPN | grey | the controller did not answer; cached data is dimmed with a retry |
+| Auth failed | red | 401 or 403, with a link into settings |
 
 ## Status tracking
 
 Triggering records the queue item URL from the `Location` response header. A
-`chrome.alarms` job polls `queue/item/<id>/api/json` until Jenkins assigns a build
-number, then polls the build until `building` goes false. The toolbar badge shows the
-number of in-flight builds, and a desktop notification fires on completion. Clicking
-the notification opens the build page.
+`chrome.alarms` job polls `queue/item/<id>/api/json` until Jenkins assigns a build number,
+then polls the build until `building` goes false. Network errors during polling are
+ignored rather than failing the run, since a dropped VPN should not lose a build you are
+watching. The toolbar badge counts in-flight builds and a desktop notification fires on
+completion.
 
-Chrome will not run alarms more often than every 30 seconds, so that is the floor for
-the poll interval.
+Chrome will not run alarms more often than every 30 seconds, so that is the floor for the
+poll interval. Elapsed times still tick every second while the popup is open.
+
+## Where state lives
+
+| Data | Area | Why |
+|---|---|---|
+| `config` (base URL, user ID, poll interval, notify, search depth) | `sync` | follows your Chrome profile |
+| `starred` (ordered), `paramValues` | `sync` | same |
+| `token` | `local` | see below |
+| `runs` | `local` | machine-specific, and noisy for sync quota |
+| `jobIndex` | `session` | rebuilt once per browser session |
+
+The design handoff put the API token in `sync`. It is in `local` here instead: `sync`
+uploads to Google and propagates the credential to every Chrome profile signed into the
+same account, which is the wrong place for a Jenkins token. Flip it in `lib/store.js` if
+you disagree. Password build parameters are sent to Jenkins but never written to storage
+at all.
 
 ## Auth modes
 
 **API token** (default) sends HTTP basic auth. Jenkins exempts API-token requests from
 CSRF, so no crumb is needed.
 
-**Browser session** reuses your Jenkins cookies with `credentials: include` and fetches
-a crumb from `/crumbIssuer/api/json` before each POST. Use it if your Jenkins is behind
-SSO that blocks token auth. It breaks whenever your session expires.
+**Browser session** reuses your Jenkins cookies with `credentials: include` and fetches a
+crumb from `/crumbIssuer/api/json` before each POST. Use it if your Jenkins is behind SSO
+that blocks token auth. It breaks whenever your session expires.
+
+## Working on the design
+
+`dev/preview.html` opens the popup in a normal browser tab with `dev/mock-chrome.js`
+stubbing the extension APIs and a fake Jenkins. No extension reload, no VPN.
+
+```
+python3 -m http.server 8731
+open http://localhost:8731/dev/preview.html
+```
+
+Resize the window to 400×600 to match the real popup. Nothing in `dev/` ships.
+
+The source design lives in `design_handoff_jenkins_launcher/`. Tokens in `popup.css` are
+copied from it verbatim; icons are inlined Lucide paths in `lib/icons.js` rather than the
+prototype's Unicode placeholders.
+
+## Tests
+
+```
+node test/normalize.test.mjs
+```
+
+Covers URL normalisation and root detection: reverse-proxy context paths, view segments,
+build and console suffixes, encoded branch names.
 
 ## Known gaps
 
 - File parameters are not supported. `buildWithParameters` needs multipart for those.
 - Multibranch jobs must be starred at the branch level, since the top level is a folder.
 - Credentials and Run parameter types render as plain text inputs.
-- Nothing here works without VPN reachability to the Jenkins host. See below.
+- Search indexes to `searchDepth` folder levels (default 3). Deeper jobs are invisible to
+  search but can still be added by URL.
+- Untested against a live Jenkins controller.
 
-## The VPN question
+## VPN
 
-Chrome has no VPN API, and an extension cannot bind its own traffic to a tunnel.
-`chrome.proxy` sets a PAC script for the entire browser profile and needs a proxy that
-is reachable without the tunnel, which most corporate VPNs do not offer.
-
-The workable answer is split tunneling at the OS level. With OpenVPN, add to your
-profile:
-
-```
-route-nopull
-route <jenkins-ip> 255.255.255.255
-# or the whole subnet:
-# route 10.20.0.0 255.255.0.0
-```
-
-`route-nopull` tells the client to ignore the server's pushed routes, including any
-`redirect-gateway` that would send all traffic through the tunnel. The two lines above
-then add back only what you need. The tunnel can stay connected all day without
-touching the rest of your traffic, which removes the reason to connect and disconnect
-manually.
-
-If the server pushes DNS you need for the Jenkins hostname, `route-nopull` drops that
-too. Either use the IP directly, add a `/etc/hosts` entry, or re-add the DNS with
-`dhcp-option DNS <server>`.
+Chrome has no VPN API, and an extension cannot bind its own traffic to a tunnel. The
+workable fix is split tunnelling at the OS level: with OpenVPN, add `route-nopull` plus an
+explicit `route` for the Jenkins subnet, so the tunnel can stay up all day while carrying
+only Jenkins traffic. Note that `route-nopull` also drops the pushed DNS.

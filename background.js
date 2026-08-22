@@ -1,21 +1,21 @@
-import * as store from './lib/storage.js';
+import * as store from './lib/store.js';
 import * as jenkins from './lib/jenkins.js';
 
 const ALARM = 'poll-runs';
 const GIVE_UP_MS = 3 * 60 * 60 * 1000;   // stop chasing a run after three hours
 
-chrome.runtime.onInstalled.addListener(ensureAlarm);
+chrome.runtime.onInstalled.addListener(async () => {
+  await store.migrate();
+  await ensureAlarm();
+});
 chrome.runtime.onStartup.addListener(ensureAlarm);
 
 async function ensureAlarm() {
-  const { pollSeconds } = await store.getSettings();
-  const minutes = Math.max(0.5, (pollSeconds || 30) / 60);
-  chrome.alarms.create(ALARM, { periodInMinutes: minutes });
+  const { pollSeconds } = await store.getConfig();
+  chrome.alarms.create(ALARM, { periodInMinutes: Math.max(0.5, (pollSeconds || 30) / 60) });
 }
 
-chrome.alarms.onAlarm.addListener(a => {
-  if (a.name === ALARM) pollAll();
-});
+chrome.alarms.onAlarm.addListener(a => { if (a.name === ALARM) pollAll(); });
 
 chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
   handle(msg)
@@ -26,36 +26,37 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
 
 async function handle(msg) {
   switch (msg.type) {
-    case 'trigger':  return trigger(msg.pipelineId, msg.params, msg.persist);
-    case 'poll':     return pollAll();
+    case 'trigger':     return trigger(msg.pipelineId, msg.params, msg.persist);
+    case 'poll':        return pollAll();
     case 'ensureAlarm': return ensureAlarm();
     default: throw new Error(`Unknown message: ${msg.type}`);
   }
 }
 
 async function trigger(pipelineId, params, persist) {
-  const settings = await store.getSettings();
-  const pipelines = await store.getPipelines();
-  const pipeline = pipelines.find(p => p.id === pipelineId);
-  if (!pipeline) throw new Error('That pipeline is no longer saved.');
+  const config = await store.getConfig();
+  const pipeline = (await store.getStarred()).find(p => p.id === pipelineId);
+  if (!pipeline) throw new Error('That pipeline is no longer starred.');
 
-  const queueUrl = await jenkins.triggerBuild(pipeline.url, params, settings);
+  const queueUrl = await jenkins.triggerBuild(pipeline.url, params, config);
 
-  // Remember the values so the next run starts pre-filled.
-  await store.upsertPipeline({ id: pipeline.id, lastValues: persist ?? params, lastTriggeredAt: Date.now() });
+  await Promise.all([
+    store.setParamValues(pipelineId, persist ?? params),
+    store.star({ id: pipelineId, lastRunAt: Date.now() })
+  ]);
 
   const run = await store.addRun({
-    id: `${pipelineId}-${Date.now()}`,
-    pipelineId,
-    pipelineName: pipeline.name,
+    id: `${pipelineId}::${Date.now()}`,
+    jobId: pipelineId,
+    name: pipeline.name,
     jobUrl: pipeline.url,
     queueUrl,
-    buildUrl: null,
-    number: null,
-    state: queueUrl ? 'queued' : 'unknown',
-    result: null,
-    params: persist ?? params,
-    startedAt: Date.now()
+    url: null,
+    build: null,
+    status: queueUrl ? 'QUEUED' : 'RUNNING',
+    startedAt: Date.now(),
+    finishedAt: null,
+    error: null
   });
 
   await ensureAlarm();
@@ -69,18 +70,21 @@ async function pollAll() {
   if (polling) return;
   polling = true;
   try {
-    const settings = await store.getSettings();
-    const runs = await store.getRuns();
-    const active = runs.filter(r => r.state === 'queued' || r.state === 'building');
-    for (const run of active) {
+    const config = await store.getConfig();
+    for (const run of (await store.getRuns()).filter(store.isActive)) {
       if (Date.now() - run.startedAt > GIVE_UP_MS) {
-        await store.updateRun(run.id, { state: 'error', error: 'Stopped tracking after three hours.' });
+        await store.updateRun(run.id, {
+          status: 'ERROR', error: 'Stopped tracking after three hours.', finishedAt: Date.now()
+        });
         continue;
       }
       try {
-        await advance(run, settings);
+        await advance(run, config);
       } catch (err) {
-        await store.updateRun(run.id, { state: 'error', error: err.message });
+        // A network blip should not kill a run we are still tracking. Only give
+        // up on errors that will not fix themselves.
+        if (err.kind === 'network') continue;
+        await store.updateRun(run.id, { status: 'ERROR', error: err.message, finishedAt: Date.now() });
       }
     }
     await refreshBadge();
@@ -89,60 +93,61 @@ async function pollAll() {
   }
 }
 
-async function advance(run, settings) {
-  if (run.state === 'queued' && run.queueUrl) {
-    const item = await jenkins.getQueueItem(run.queueUrl, settings);
+async function advance(run, config) {
+  if (run.status === 'QUEUED' && run.queueUrl) {
+    const item = await jenkins.getQueueItem(run.queueUrl, config);
     if (item.cancelled) {
-      await store.updateRun(run.id, { state: 'error', error: 'Cancelled while queued.' });
+      await store.updateRun(run.id, { status: 'ABORTED', finishedAt: Date.now() });
       return;
     }
     if (item.executable) {
       await store.updateRun(run.id, {
-        state: 'building',
-        buildUrl: item.executable.url,
-        number: item.executable.number
+        status: 'RUNNING', url: item.executable.url, build: item.executable.number,
+        buildStartedAt: Date.now(), why: null
       });
       return;
     }
-    await store.updateRun(run.id, { why: item.why || 'Waiting in queue' });
+    await store.updateRun(run.id, { why: item.why || null });
     return;
   }
 
-  if (run.state === 'building' && run.buildUrl) {
-    const build = await jenkins.getBuild(run.buildUrl, settings);
+  if (run.status === 'RUNNING' && run.url) {
+    const build = await jenkins.getBuild(run.url, config);
     if (build.building) {
-      await store.updateRun(run.id, { estimatedDuration: build.estimatedDuration, buildStartedAt: build.timestamp });
+      await store.updateRun(run.id, {
+        estimatedDuration: build.estimatedDuration,
+        buildStartedAt: build.timestamp || run.buildStartedAt
+      });
       return;
     }
-    await store.updateRun(run.id, { state: 'done', result: build.result || 'UNKNOWN' });
-    await announce(run, build.result || 'UNKNOWN');
+    const status = build.result || 'UNKNOWN';
+    await store.updateRun(run.id, { status, finishedAt: Date.now() });
+    await announce({ ...run, status }, config);
   }
 }
 
-async function announce(run, result) {
-  const { notify } = await store.getSettings();
-  if (!notify) return;
-  chrome.notifications.create(`${run.id}-done`, {
+async function announce(run, config) {
+  if (config.notify === false) return;
+  chrome.notifications.create(`${run.id}::done`, {
     type: 'basic',
     iconUrl: 'icons/128.png',
-    title: `${run.pipelineName} #${run.number ?? ''} ${result}`,
-    message: result === 'SUCCESS' ? 'Build finished successfully.' : `Build finished: ${result}`,
-    priority: result === 'SUCCESS' ? 0 : 2
+    title: `${run.name}${run.build ? ` #${run.build}` : ''} ${run.status}`,
+    message: run.status === 'SUCCESS' ? 'Build finished successfully.' : `Build finished: ${run.status}`,
+    priority: run.status === 'SUCCESS' ? 0 : 2
   });
 }
 
 chrome.notifications?.onClicked.addListener(async id => {
-  const runId = id.replace(/-done$/, '');
-  const run = (await store.getRuns()).find(r => r.id === runId);
-  if (run?.buildUrl) chrome.tabs.create({ url: run.buildUrl });
+  const run = (await store.getRuns()).find(r => `${r.id}::done` === id);
+  if (run?.url) chrome.tabs.create({ url: run.url });
 });
 
 async function refreshBadge() {
   const runs = await store.getRuns();
-  const active = runs.filter(r => r.state === 'queued' || r.state === 'building').length;
-  const failed = runs.some(r => r.state === 'done' && r.result && r.result !== 'SUCCESS');
+  const active = runs.filter(store.isActive).length;
+  const bad = runs.some(r => !store.isActive(r) && r.status !== 'SUCCESS');
   await chrome.action.setBadgeText({ text: active ? String(active) : '' });
-  await chrome.action.setBadgeBackgroundColor({ color: failed ? '#c0392b' : '#2f6fdb' });
+  await chrome.action.setBadgeBackgroundColor({ color: bad ? '#c0392b' : '#2f6fdb' });
 }
 
 ensureAlarm();

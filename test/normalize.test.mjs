@@ -1,5 +1,5 @@
 // node test/normalize.test.mjs
-import { normalizeJobUrl, originOf } from '../lib/jenkins.js';
+import { normalizeJobUrl, originOf, rootOf } from '../lib/jenkins.js';
 
 const cases = [
   ['https://jenkins.corp/job/Deploy/',                          'https://jenkins.corp/job/Deploy'],
@@ -28,5 +28,17 @@ if (originOf('https://jenkins.corp:8443/jenkins/job/X') !== 'https://jenkins.cor
   failed++; console.error('FAIL originOf');
 }
 
-console.log(failed ? `${failed} failing` : `${cases.length + 3} assertions passed`);
+const roots = [
+  ['https://ci.corp/jenkins/job/A/job/b',        'https://ci.corp/jenkins'],
+  ['https://ci.corp/job/A/482/console',          'https://ci.corp'],
+  ['https://ci.corp/jenkins/queue/item/91/',     'https://ci.corp/jenkins'],
+  ['https://ci.corp/jenkins/view/All/job/A',     'https://ci.corp/jenkins'],
+  ['https://ci.corp/jenkins/',                   'https://ci.corp/jenkins'],
+];
+for (const [input, want] of roots) {
+  const got = rootOf(input);
+  if (got !== want) { failed++; console.error(`FAIL rootOf ${input}\n  got  ${got}\n  want ${want}`); }
+}
+
+console.log(failed ? `${failed} failing` : `${cases.length + 8} assertions passed`);
 process.exit(failed ? 1 : 0);
