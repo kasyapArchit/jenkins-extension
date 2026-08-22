@@ -29,6 +29,9 @@ function makeArea(name) {
   };
 }
 
+// Kept in step with lib/build.js by importing it at load time below.
+let BUILD_STAMP = null;
+
 globalThis.chrome = {
   storage: {
     sync: makeArea('sync'),
@@ -52,6 +55,11 @@ globalThis.chrome = {
         await chrome.storage.local.set({ runs });
         return { ok: true };
       }
+      if (msg.type === 'ping') {
+        // ?stale reproduces Chrome keeping an old service worker after a reload.
+        const stale = new URLSearchParams(location.search).has('stale');
+        return { ok: true, data: { build: stale ? 'older' : BUILD_STAMP } };
+      }
       if (msg.type === 'diagnose') {
         return { ok: true, data: { ok: true, who: 'Archit Kashyap', clientBuild: '2', hasToken: true } };
       }
@@ -63,6 +71,8 @@ globalThis.chrome = {
 };
 
 let BUILD = 530;
+
+import('../lib/build.js').then(m => { BUILD_STAMP = m.BUILD; });
 
 /* ---------- fake Jenkins ---------- */
 

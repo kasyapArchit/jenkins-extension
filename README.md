@@ -160,14 +160,14 @@ extension, so the popup can be new while the background script is still old code
 the popup looks right, Test connection is green, and triggering a build fails with an error
 message that no longer exists in the source.
 
-Test connection detects this. It runs two checks. The first uses the values currently in
-the options form. The second asks the service worker, which is what actually runs a build:
-stored config, its own loaded copy of the Jenkins client. If the worker reports a different
-`CLIENT_BUILD` than the options page, the test says so and tells you to toggle the extension
-off and on, which is the reliable way to replace the worker.
+The popup checks for this every time it opens. `lib/build.js` exports a `BUILD` stamp that
+the popup and the worker each report from their own loaded copy. On a mismatch the popup
+shows a banner with a Reload button that calls `chrome.runtime.reload()`, which replaces the
+worker properly. Bump `BUILD` whenever you change `background.js` or anything it imports;
+if you forget, the check silently passes and you are back to guessing.
 
-The same test also catches settings you typed but never saved, since only the second check
-reads storage.
+Test connection makes the same comparison, and additionally catches settings you typed but
+never saved, since only its second check reads storage.
 
 ## Tests
 

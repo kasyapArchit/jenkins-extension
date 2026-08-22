@@ -1,5 +1,6 @@
 import * as store from './lib/store.js';
 import * as jenkins from './lib/jenkins.js';
+import { BUILD } from './lib/build.js';
 
 const $ = id => document.getElementById(id);
 const TEXT_FIELDS = ['baseUrl', 'authMode', 'userId', 'token', 'pollSeconds', 'searchDepth'];
@@ -83,7 +84,7 @@ async function test() {
 }
 
 function report(candidate, form, worker) {
-  if (worker.clientBuild !== jenkins.CLIENT_BUILD) {
+  if (worker.clientBuild !== BUILD) {
     return status(
       'The background script is running older code than this page. Open chrome://extensions, '
       + 'toggle Jenkins Launcher off and on, then test again.', 'err');

@@ -1,5 +1,6 @@
 // node test/auth.test.mjs
-import { getJson, probe, triggerBuild, JenkinsError, CLIENT_BUILD } from '../lib/jenkins.js';
+import { getJson, probe, triggerBuild, JenkinsError } from '../lib/jenkins.js';
+import { BUILD } from '../lib/build.js';
 
 let failed = 0;
 const check = (name, cond) => { if (!cond) { failed++; console.error(`FAIL ${name}`); } };
@@ -90,7 +91,7 @@ const json = (body, status = 200) =>
   check('no params uses /build', true);
 }
 
-check('client build stamp is set', typeof CLIENT_BUILD === 'string' && CLIENT_BUILD.length > 0);
+check('build stamp is set', typeof BUILD === 'string' && BUILD.length > 0);
 
 console.log(failed ? `${failed} failing` : 'all auth assertions passed');
 process.exit(failed ? 1 : 0);

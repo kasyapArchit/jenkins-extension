@@ -1,6 +1,7 @@
 import * as store from './lib/store.js';
 import * as jenkins from './lib/jenkins.js';
 import { icon } from './lib/icons.js';
+import { BUILD } from './lib/build.js';
 import { $, el, clear, elapsed, ago } from './lib/dom.js';
 
 const MAX_RESULTS = 7;
@@ -23,6 +24,7 @@ const ui = {
   openResult: null,       // search result whose parameter panel is expanded
   addOpen: false,
   connection: 'checking',     // checking | online | offline | unauthorized
+  worker: 'ok',               // ok | stale | silent
   activeResult: 0,
   dragId: null,
   drafts: new Map(),          // pipelineId -> { KEY: value } being edited
@@ -44,8 +46,19 @@ async function init() {
   setInterval(tickElapsed, 1000);
 
   chrome.runtime.sendMessage({ type: 'poll' }).catch(() => {});
+  checkWorker();
   refreshConnection();
   warmIndex();
+}
+
+// The popup always loads fresh from disk; the service worker may not. When they
+// disagree the worker is running code the user already replaced, and every
+// symptom after that is a red herring.
+async function checkWorker() {
+  const res = await chrome.runtime.sendMessage({ type: 'ping' }).catch(() => null);
+  if (!res?.ok) ui.worker = 'silent';
+  else ui.worker = res.data?.build === BUILD ? 'ok' : 'stale';
+  renderBanner();
 }
 
 /* ---------- static chrome ---------- */
@@ -100,6 +113,20 @@ function renderHeader() {
 
 function renderBanner() {
   const b = clear($('#banner'));
+
+  // First, because a stale worker makes every other diagnosis untrustworthy.
+  if (ui.worker !== 'ok') {
+    b.hidden = false;
+    b.append(icon('alert-triangle', { size: 14 }),
+      el('span', {
+        class: 'banner-text',
+        textContent: ui.worker === 'stale'
+          ? 'The background script is running older code than this popup.'
+          : 'The background script is not responding.'
+      }),
+      el('button', { textContent: 'Reload', onclick: () => chrome.runtime.reload() }));
+    return;
+  }
 
   if (!config.baseUrl) {
     b.hidden = false;

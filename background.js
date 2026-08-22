@@ -1,5 +1,6 @@
 import * as store from './lib/store.js';
 import * as jenkins from './lib/jenkins.js';
+import { BUILD } from './lib/build.js';
 
 const ALARM = 'poll-runs';
 const GIVE_UP_MS = 3 * 60 * 60 * 1000;   // stop chasing a run after three hours
@@ -28,6 +29,7 @@ async function handle(msg) {
   switch (msg.type) {
     case 'trigger':     return trigger(msg.pipelineId, msg.params, msg.persist, msg.job);
     case 'diagnose':    return diagnose();
+    case 'ping':        return { build: BUILD };
     case 'poll':        return pollAll();
     case 'ensureAlarm': return ensureAlarm();
     default: throw new Error(`Unknown message: ${msg.type}`);
@@ -39,7 +41,7 @@ async function handle(msg) {
 async function diagnose() {
   const config = await store.getConfig();
   const out = {
-    clientBuild: jenkins.CLIENT_BUILD,
+    clientBuild: BUILD,
     version: chrome.runtime.getManifest().version,
     baseUrl: config.baseUrl,
     userId: config.userId,
