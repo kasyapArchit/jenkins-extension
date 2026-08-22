@@ -91,6 +91,12 @@ that blocks token auth. It breaks whenever your session expires.
 `python3 dev/make-icons.py` regenerates every PNG in `icons/` from geometry measured off
 the source artwork. Edit the constants at the top of that script rather than the PNGs.
 
+`TRI_SCALE` sizes the play triangle relative to the source. It is 1.35 rather than 1.0
+because at the artwork's own proportion the mark read as a notch beside other toolbar
+icons. At 1.35 the triangle is 0.45 of the disc diameter, which is normal for a play
+button, and its corners sit 0.29 from the centre against a 0.46 radius, so there is still
+clearance. Past about 1.6 it starts to crowd the disc edge.
+
 Three variants come out of it:
 
 | Variant | Square | Used for |

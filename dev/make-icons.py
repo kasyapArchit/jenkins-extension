@@ -33,6 +33,8 @@ DISC        = 0.296    # disc radius
 TRI_LEFT    = -0.079   # triangle left edge, from centre
 TRI_APEX    = 0.119    # triangle apex, from centre
 TRI_HALF_H  = 0.116    # triangle half height
+TRI_SCALE   = 1.35     # triangle size relative to the source artwork, which read
+                       # too timid next to other extensions in the toolbar
 SS          = 4        # supersampling factor
 
 
@@ -41,7 +43,8 @@ def render(size, square, disc_scale=1.0):
     fill = square or (0, 0, 0)
     n = size * SS
     r, rad = n * RADIUS, n * DISC * disc_scale
-    left, apex, half = n * TRI_LEFT, n * TRI_APEX, n * TRI_HALF_H * disc_scale
+    t = disc_scale * TRI_SCALE
+    left, apex, half = n * TRI_LEFT * t, n * TRI_APEX * t, n * TRI_HALF_H * t
     c = (n - 1) / 2.0
     acc = [[[0, 0, 0, 0] for _ in range(size)] for _ in range(size)]
 
