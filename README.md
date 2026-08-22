@@ -1,373 +1,364 @@
 # Jenkins Launcher
 
-A Manifest V3 Chrome extension that searches every pipeline on a Jenkins controller,
-triggers starred ones from the toolbar, and tracks the resulting builds. No build step,
-no bundler. Load it unpacked and edit the files directly.
+A Chrome extension for starting Jenkins builds without opening Jenkins.
 
-## Install
+Search the whole controller, keep the pipelines you use in a list, fill in the parameters and
+trigger — from a popup that opens instantly, instead of a web UI that takes its time. Builds
+you start are tracked to completion; pipelines you subscribe to tell you when anyone else
+starts one.
 
-1. Open `chrome://extensions`, turn on Developer mode.
-2. Load unpacked, pick this directory.
-3. Click the toolbar icon, then the gear, and fill in:
-   - Jenkins base URL (include the context path if Jenkins is behind a proxy)
-   - your Jenkins user ID
-   - an API token from `<jenkins>/me/security`
-4. Hit Test connection. It reports the account it authenticated as and how many
-   pipelines it can see.
+<img src="docs/browse.png" width="400" alt="The popup: running builds at the top, starred pipelines below">
 
-Chrome asks for permission to talk to your Jenkins host. That grant is why the manifest
-only declares `optional_host_permissions` instead of a blanket origin.
+Manifest V3, plain HTML, CSS and JavaScript. No bundler, no build step, no dependencies.
 
-## Using it
+---
 
-**Search** any non-empty query switches the popup into search mode and filters the whole
-controller's job list. The job index comes from one recursive `/api/json?tree=jobs[...]`
-call and is cached in `chrome.storage.session`, so typing is instant after the first load.
+## Installing
 
-Rows are named the same way everywhere else in the popup: `QA · Webmail`, with the full
-path on hover. Matching still runs against the full path, so typing a folder name finds the
-jobs inside it.
+1. `chrome://extensions` → enable **Developer mode** → **Load unpacked** → pick this folder.
+2. Open the extension, then the gear icon.
+3. Enter your Jenkins base URL, your user ID and an API token from `/me/security` on your
+   Jenkins. Press **Save connection** and approve the host permission Chrome asks for.
+4. Press **Test connection**. It should name the account builds will run as.
 
-Results can be run without starring. Every row has a Run button that triggers with the
-saved values, or the job's own Jenkins defaults the first time. Clicking the row instead
-expands the parameter form, fetched on demand, so values can be changed before triggering.
-Arrow keys move the selection, Enter runs the highlighted result, Shift+Enter opens its
-parameters, Escape clears. A successful trigger from search clears the query and drops back
-to browse, because that is where the new run is visible.
+The host permission is requested at runtime for the origin you enter, rather than declared
+up front, so the extension has no access to any site until you point it at one.
 
-Starring is a separate act: the star in the row, or the star button in the expanded panel.
-Running a pipeline from search never stars it.
+---
 
-**Run** on a starred card fires immediately with the values from the last run, falling
-back to the job's defaults the first time. This is the one-click path. Clicking the card
-body opens the parameter form when you need to change something first. Drag the grip to
-reorder.
+## The popup
 
-**Activity** shows everything triggered from the extension. Each card is two lines: name,
-build number and elapsed time on the first, the values the build ran with on the second.
-Names are folder-qualified, because several folders having a job called `QA` is normal and
-the bare name says nothing about which one ran. The eye button opens the build in a new tab,
-and on a finished card the circular arrow beside it runs the pipeline again with exactly the
-values that build used.
+### Activity
 
-Where the build number sits, a version appears instead once the pipeline sets one. Every
-poll re-reads the build's `displayName`, which is what `currentBuild.displayName = "9.2.1"`
-writes and what Jenkins' own UI shows in place of `#N`. Until a pipeline sets it, Jenkins
-returns the default `#N` and the card shows the number as before. The build number stays in
-the tooltip either way.
+Everything you triggered from the extension, newest first, up to 40 entries. Each card is two
+lines: name, build number and time on the first, the values the build ran with on the second.
 
-If your pipelines publish their version somewhere else, `currentBuild.description` or a
-named environment variable, that is a one-line change to the tree query in `getBuild()` and
-to `buildLabel()` in `lib/format.js`.
+The coloured dot carries the status, so the card does not spend a line spelling it out. A
+ring rather than a filled dot means queued — the one state a colour cannot express — and the
+dot's tooltip names the state either way, including the queue reason Jenkins gives.
 
-The status word is deliberately absent. The dot already says running, succeeded or failed,
-so printing SUCCESS next to a green dot spends a line on nothing. Queued is the one state a
-colour cannot express, so it gets a ring instead of a filled dot, and the dot's tooltip
-names the state either way, including the queue reason Jenkins gives.
+Where the build number sits, a version appears instead once the pipeline sets one. Every poll
+re-reads the build's `displayName`, which is what `currentBuild.displayName = "9.2.1"` writes
+and what Jenkins' own UI shows in place of `#N`. The number stays in the tooltip.
 
-Values only, not `KEY=value`: a branch name or a build command identifies itself, and the
-key doubles the length of a line that has to fit in 400px. The keys are in the tooltip. Booleans are left out entirely, since they are stored as real
-booleans so the type is enough to filter on, and a row of `false` says nothing about what
-the build was. The starred cards still show `KEY=value`, because there you are about to
-edit the values rather than read them back. Running builds tick every second and can be
-aborted via `POST <build>/stop`. Finished rows are dismissed one at a time.
+Parameters are shown as values only, not `KEY=value`: a branch name or a build command
+identifies itself, and the key doubles the length of a line that has to fit in 400px. The keys
+are in the tooltip. Booleans are left out, since a row of `false` says nothing about what the
+build was.
 
-Re-running reads the values off the run record, not the pipeline's saved ones, so it
-reproduces what that build actually used even if the saved values have been edited since.
-It does not write them back either: a replay of an old build should not quietly become the
-new default. Password parameters are the gap, since they are stripped before a run is
-recorded; a replay omits them and Jenkins uses its own defaults.
+Running builds tick every second and can be aborted. Finished ones offer three buttons: an eye
+that opens the build in Jenkins, a circular arrow that runs it again, and a cross that
+dismisses it.
 
-Parameter panels slide open and shut. The wrapper is a grid whose single row animates
-between `minmax(0, 0fr)` and `minmax(0, 1fr)`, so no height has to be measured and a
-two-field pipeline and a ten-field one take the same 190ms. Only the render that follows a
-click animates, tracked by `ui.justOpened`; a background poll re-rendering an open card
-rebuilds it already expanded rather than replaying the animation. The flag is cleared when
-the reveal runs rather than when the card renders, because a render can be discarded before
-its animation ever starts, which is what happens when a search result's parameters arrive a
-tick after the panel opens. Reduced-motion preferences cut the duration to 1ms.
+**Re-running** reads the values off the run record rather than the pipeline's saved ones, so
+it reproduces what that build actually used even if the saved values have been edited since.
+It does not write them back either: replaying an old build should not quietly become the new
+default.
 
-**Blocking** keeps a pipeline from being started by accident. A blocked one appears exactly
-where it did before, but its Run and Trigger build buttons become Open and take you to the
-job in Jenkins. Clicking the name still expands the parameters, so nothing becomes
-unreadable; only the build is withheld.
+### Starred pipelines
 
-There are two independent sources, and either one blocks. The padlock beside a pipeline's
-name blocks that one pipeline, and lives in `chrome.storage.sync` under `blocked` as a list
-of ids. Patterns in settings block by name, which is how a pipeline you have not starred, or
-one that does not exist yet, can be covered; they are `config.denyPatterns`, matched
-case-insensitively and unanchored against the full path. A pattern block cannot be lifted
-from the popup — its padlock is shown but does not open — because a deny-list you can click
-away on the card it is guarding is not a deny-list. Blocks survive unstarring, since
-unstarring is tidying and should not disarm a guard.
+<img src="docs/parameters.png" width="400" alt="A starred pipeline expanded to show its parameter form">
 
-The rule lives in `lib/guard.js`, which has no DOM or chrome dependency so the service
-worker enforces exactly what the popup draws. The popup swapping the button is an
-affordance; `trigger()` in `background.js` checking again is the guard. A stale popup, a
-replay of an old run, or a message from anywhere else all hit the same refusal.
+Click a name to expand its parameters, fetched from Jenkins and rendered by type — text
+fields, choice dropdowns, checkboxes, password fields. Values are remembered per pipeline, so
+the next build starts from what you used last. **Run** triggers with those values directly;
+**Trigger build** in the panel does the same after you have edited them. **Sync params**
+re-reads the definitions when the Jenkinsfile changes.
 
-The padlock only appears on a search row that is already blocked, so blocking a pipeline
-from search before starring it means writing a pattern. The bell is always there, since
+Drag the grip to reorder. **Add pipeline by URL** at the bottom takes any Jenkins URL
+containing the job — build page, console, job page — and trims it to the job path.
+
+Panels slide open and shut: the wrapper is a grid whose single row animates between
+`minmax(0, 0fr)` and `minmax(0, 1fr)`, so no height is measured and a two-field pipeline and a
+ten-field one take the same 190ms. Reduced-motion preferences cut that to nothing.
+
+### Search
+
+<img src="docs/search.png" width="400" alt="Searching the controller, with results that can be run without starring">
+
+Type anything and the popup switches to search across every job on the controller. The index
+comes from one recursive `/api/json?tree=jobs[...]` call, cached in `chrome.storage.session`,
+so typing is instant after the first load.
+
+Results run without starring. Every row has a Run button that triggers with saved values, or
+the job's own Jenkins defaults the first time. Clicking the row expands the same parameter
+form. Arrow keys move, Enter runs the highlighted result, Shift+Enter opens its parameters,
+Escape clears. A successful trigger drops back to browse, because that is where the new run
+is visible.
+
+Starring is a separate act — the star in the row, or in the expanded panel. Running a pipeline
+from search never stars it.
+
+### Names
+
+Pipelines read `QA · Frontend`: the job leads, since that is what you are scanning for, and
+the immediate parent folder trails as the disambiguator between the several folders that each
+contain a job called QA. The full path is in the tooltip, and both lines ellipsize from the
+right, so a long path loses the folder rather than the job.
+
+---
+
+## Blocking a pipeline
+
+The padlock beside a pipeline's name stops it being started by accident. A blocked pipeline
+appears exactly where it did before, but its **Run** and **Trigger build** buttons become
+**Open** and take you to the job in Jenkins. Clicking the name still expands the parameters:
+withholding the build should not make the values unreadable.
+
+Two independent sources, either of which blocks:
+
+- **The padlock**, for one pipeline at a time. Stored in `chrome.storage.sync` under
+  `blocked`. Blocks survive unstarring, since unstarring is tidying and should not disarm a
+  guard.
+- **Patterns in settings**, for pipelines you have not starred or that do not exist yet.
+  Regular expressions matched case-insensitively and unanchored against the full path.
+
+A pattern block cannot be lifted from the popup — its padlock shows but does not open —
+because a deny-list you can click away on the card it is guarding is not a deny-list.
+
+The rule lives in `lib/guard.js`, with no DOM or chrome dependency, so the service worker
+enforces exactly what the popup draws. The popup swapping the button is an affordance;
+`trigger()` in `background.js` checking again is the guard, and it catches the replay button,
+the search Enter key, a stale popup and anything else that reaches the worker.
+
+The padlock only appears on a search row that is already blocked, so blocking something from
+search before starring it means writing a pattern.
+
+---
+
+## Subscribing
+
+<img src="docs/subscriptions.png" width="400" alt="The footer count expanded into a list of subscribed pipelines">
+
+The bell beside the padlock watches a pipeline whoever starts it — someone else's deploy, a
+webhook, a nightly. The run list cannot do this; it only knows about builds this extension
+asked for. Filled means subscribed, and the bell is always available on search rows, since
 subscribing has no other route.
 
-**Subscribing** notifies you whenever a pipeline runs, whoever started it, which the run
-list cannot do: it only knows about builds this extension asked for. The bell sits beside the
-padlock on starred cards and on search rows, so the two things that change what a pipeline
-does without opening it are in one place, and a pipeline can be subscribed without being
-starred. Filled means subscribed. Both sit at the far end of the row so the caret stays
-attached to the name.
-
-The footer counts them next to the starred count, and that count is a button: a subscription
+The footer counts them next to the starred count, and that count is a button. A subscription
 is otherwise invisible unless you happen to be looking at the pipeline carrying it, so the
-list under the footer is the only place the whole set can be seen and unpicked.
+list is the only place the whole set can be seen; each row opens the job or drops the
+subscription.
 
-Each poll asks every subscription for `lastBuild[number,building,result,timestamp,duration]`
-and compares it with a watermark. A higher number is a start, a verdict on the number we were
-watching is a finish. Deciding that lives in `lib/watch.js`, pure and tested. Three details it
-gets right that a first attempt would not:
+Each poll asks every subscription for its last build and compares against a watermark: a
+higher number is a start, a verdict on the number we were watching is a finish. `lib/watch.js`
+decides, and three cases it gets right that a first attempt would not:
 
-- The first sight of a pipeline is recorded silently. Otherwise subscribing announces
-  whatever happened to run last.
-- Jenkins reports `building: false` with `result: null` for a moment at the end of a build.
-  A build counts as over only once it has a verdict, or every finish would announce a
+- The first sight of a pipeline is recorded silently, or subscribing would announce whatever
+  happened to run last.
+- Jenkins reports `building: false` with `result: null` for a moment at the end of a build, so
+  a build counts as over only once it has a verdict. Otherwise every finish would announce a
   failure that never happened.
-- A build that starts and finishes inside one poll reports the finish only, and builds
-  skipped entirely between polls are not reported at all.
+- A build that starts and finishes inside one poll reports the finish only, and builds skipped
+  entirely between polls are not reported at all.
 
-Watermarks are in `chrome.storage.local`, not sync: they are rewritten on every state change
-and sync refuses more than 1800 writes an hour.
+Builds the extension triggered itself still notify from the run list, exactly as before
+subscriptions existed. The subscription poll skips any build already in the run list, matched
+on job and build number, so subscribing to a pipeline you also trigger does not double up.
+Two consequences: a build you start yourself never produces a *started* notification even with
+that kind switched on, because the run list does not send one and the subscription is
+suppressed; and if run tracking loses a build — the three-hour give-up, or the run list
+rolling past 40 entries — the subscription announces it, which is the right way round.
 
-Builds the extension triggered itself still notify, from the run list, exactly as they did
-before subscriptions existed. The subscription poll skips any build already in the run list,
-matched on job and build number, so subscribing to a pipeline you also trigger does not
-double up. Two consequences worth knowing: a build you start yourself never produces a
-"started" notification even with that kind switched on, because the run list does not send
-one and the subscription is suppressed; and if run tracking loses a build — the three-hour
-give-up, or the run list rolling past its cap — the subscription announces it, which is the
-right way round.
+### Missed builds
 
-Which moments are worth a notification is a setting, with at least one kind always on — the
-last box still ticked is disabled rather than validated on save. Notifications only arrive
-while Chrome is running and the controller is reachable, so a reconnect after the VPN drops
-finds a pile of finished builds at once; anything that happened more than two minutes ago is
-dropped unless the missed-builds setting says otherwise.
+Notifications only arrive while Chrome is running and the controller is reachable. Off the
+VPN or with Chrome closed, builds pile up and all announce themselves at once on reconnect.
+Anything that happened more than two minutes ago is dropped unless **Also tell me about builds
+I missed** says otherwise.
 
-**Add by URL** at the bottom takes any Jenkins URL containing the job (build page, console,
-job page) and trims it down to the job path.
+---
 
-## Connection states
+## Settings
 
-The header dot reports what the last probe of `/me/api/json` found.
+<img src="docs/settings.png" width="700" alt="The settings page">
 
-| State | Dot | Meaning |
-|---|---|---|
-| Connected | green | reachable and authenticated |
-| No VPN | grey | the controller did not answer; cached data is dimmed with a retry |
-| Auth failed | red | 401 or 403, with a link into settings |
+The connection has a Save button because saving it also asks Chrome for permission to reach
+the controller, and Chrome only grants that from a click. Everything else is a preference and
+writes as you change it, with the confirmation next to the control rather than at the top of
+the page.
 
-## Status tracking
+That split exists because a single Save button under the connection fields made a setting
+three sections below it look like it had saved itself. It had not, and nothing said so.
 
-Triggering records the queue item URL from the `Location` response header. A
-`chrome.alarms` job polls `queue/item/<id>/api/json` until Jenkins assigns a build number,
-then polls the build until `building` goes false. Network errors during polling are
-ignored rather than failing the run, since a dropped VPN should not lose a build you are
-watching. The toolbar badge counts in-flight builds and a desktop notification fires on
-completion.
+Two smaller guarantees. A refused write is reported rather than swallowed: `chrome.storage
+.sync` has its own quotas, and a rejection used to end up in an unhandled promise while the
+page said Saved. And a deny pattern that will not compile is not written at all, since storing
+a rule the guard skips reads as blocking being broken rather than that line being wrong.
 
-Chrome will not run alarms more often than every 30 seconds, so that is the floor for the
-poll interval. Elapsed times still tick every second while the popup is open.
+**Test connection** runs two checks, because they can disagree and that difference is the
+point. The first uses the values in the form. The second asks the service worker, which is
+what actually runs a build: stored config, its own copy of the client. A green form check with
+a red worker check means the settings were never saved, or Chrome is running a stale
+background script.
 
-## Where state lives
+---
 
-| Data | Area | Why |
-|---|---|---|
-| `config` (base URL, user ID, poll interval, notify, search depth, deny patterns) | `sync` | follows your Chrome profile |
-| `blocked` (pipeline ids blocked by hand) | `sync` | follows your Chrome profile |
-| `subscriptions` (pipelines to watch) | `sync` | follows your Chrome profile |
-| `watch` (last build seen per subscription) | `local` | written per build; sync would hit its write quota |
-| `starred` (ordered), `paramValues` | `sync` | same |
-| `token` | `local` | see below |
-| `runs` | `local` | machine-specific, and noisy for sync quota |
-| `jobIndex` | `session` | rebuilt once per browser session |
+## Connection state
 
-The design handoff put the API token in `sync`. It is in `local` here instead: `sync`
-uploads to Google and propagates the credential to every Chrome profile signed into the
-same account, which is the wrong place for a Jenkins token. Flip it in `lib/store.js` if
-you disagree. Password build parameters are sent to Jenkins but never written to storage
-at all.
+The header dot reports the controller, re-checked when the popup opens.
 
-## Auth modes
+| State | Meaning |
+| --- | --- |
+| **Connected** | `/me/api/json` answered and named a real account. |
+| **Offline** | The request never reached Jenkins. Usually the VPN. |
+| **Unauthorized** | Jenkins answered but rejected the credentials, or answered as anonymous. |
 
-**API token** (default) sends HTTP basic auth. Jenkins exempts API-token requests from
-CSRF, so no crumb is needed.
+Offline is a distinct state rather than an error, because it is the normal condition when you
+are away from the VPN and nothing is wrong with the setup. The poller skips network failures
+rather than marking a tracked build as failed, so a dropped connection does not lose a build
+that is still running.
 
-**Browser session** reuses your Jenkins cookies with `credentials: include` and fetches a
-crumb from `/crumbIssuer/api/json` before each POST. Use it if your Jenkins is behind SSO
-that blocks token auth. It breaks whenever your session expires.
+---
 
-## Icons
+## Authentication
 
-`python3 dev/make-icons.py` regenerates every PNG in `icons/` from geometry measured off
-the source artwork. Edit the constants at the top of that script rather than the PNGs.
+**API token** (recommended) sends HTTP Basic on every request. Jenkins exempts token requests
+from CSRF, so no crumb is needed.
 
-`TRI_SCALE` sizes the play triangle relative to the source. It is 1.35 rather than 1.0
-because at the artwork's own proportion the mark read as a notch beside other toolbar
-icons. At 1.35 the triangle is 0.45 of the disc diameter, which is normal for a play
-button, and its corners sit 0.29 from the centre against a 0.46 radius, so there is still
-clearance. Past about 1.6 it starts to crowd the disc edge.
+**Browser session** reuses the cookies of a Jenkins tab you are already logged in to, and
+fetches a crumb from `/crumbIssuer/api/json` before each build. Useful if your Jenkins is
+behind SSO that will not issue tokens.
 
-Three variants come out of it:
+Missing credentials fail loudly rather than sending an unauthenticated request. A 401 from
+Jenkins reads as "your token is wrong" when the real problem is that no token was ever saved.
 
-| Variant | Square | Used for |
-|---|---|---|
-| `-mark` | transparent | the toolbar action icon, and notifications |
-| `-dark` | `#16181d` | the `icons` key: chrome://extensions, the store |
-| `-light` | `#ffffff` | unused; kept for the light tile if it is ever wanted |
+---
 
-Chrome has no way to pick an icon by colour scheme. `icon_variants` is not in the manifest
-reference, and per the W3C WebExtensions issue only Safari implemented it. Firefox has
-`theme_icons`; Chrome does not. The only Chrome option is calling `chrome.action.setIcon()`
-at runtime, which needs a theme signal the service worker does not have.
+## Where things are stored
 
-That does not cost anything here, because the toolbar uses the transparent mark. The tile
-was never going to disappear into the toolbar anyway: Chrome's dark toolbar is `#35363a`,
-lighter than the artwork's `#16181d`, so a dark tile stays visible as a tile in both themes.
-At 16px it also spends about 40% of the canvas on the tile and shrinks the disc to a dot.
-Dropping it lets the disc fill the icon and punches the play triangle straight through, so
-whatever the toolbar colour is shows in it. One file, correct on every theme, custom ones
-included.
+| What | Area | Why |
+| --- | --- | --- |
+| `config` — base URL, user ID, poll interval, notification kinds, search depth, deny patterns | `sync` | follows your Chrome profile |
+| `starred` — pipelines and their parameter definitions | `sync` | follows your Chrome profile |
+| `paramValues` — the values you last used | `sync` | follows your Chrome profile |
+| `blocked` — pipeline ids blocked by hand | `sync` | follows your Chrome profile |
+| `subscriptions` — pipelines being watched | `sync` | follows your Chrome profile |
+| `token` — the API token | **`local`** | deliberately not synced |
+| `runs` — tracked builds, newest 40 | `local` | machine-specific and noisy |
+| `watch` — last build seen per subscription | `local` | rewritten per build; sync caps writes per hour |
 
-## Working on the design
+The token is the one deliberate deviation. `chrome.storage.sync` uploads to Google and
+propagates to every Chrome profile signed into the same account, which is the wrong place for
+a Jenkins credential. Password build parameters are sent to Jenkins but never written to
+storage at all, which is also why a re-run leaves them out and Jenkins falls back to its own
+defaults.
 
-`dev/preview.html` opens the popup in a normal browser tab with `dev/mock-chrome.js`
-stubbing the extension APIs and a fake Jenkins. No extension reload, no VPN.
+The job index for search lives in `chrome.storage.session` and is dropped when the browser
+closes.
 
-`dev/options-preview.html` does the same for the settings page. Rather than copying its
-markup, which is how the popup harness drifted from the worker once already, it lifts the
-real `options.html`'s style and sheet out of the file and imports `options.js` over them, so
-it cannot go stale.
+---
+
+## How a build is tracked
+
+1. `POST buildWithParameters` (or `/build` for a pipeline with no parameters). Jenkins replies
+   `201` with a `Location` header pointing at a queue item. Extension contexts with host
+   permissions are exempt from CORS, so that header is readable — a page on the open web could
+   not read it.
+2. The queue item is polled until it names an executable, which gives the build number and URL.
+3. The build is polled until `building` goes false, then the result is recorded and announced.
+4. A build still being chased after three hours is given up on rather than polled forever.
+
+Polling runs on a `chrome.alarms` alarm. Thirty seconds is Chrome's floor and the default;
+while the popup is open, elapsed times still tick every second. The toolbar badge shows how
+many builds are in flight, in red if any recent one did not succeed.
+
+---
+
+## Reloading during development
+
+Chrome does not always replace a running service worker when you press Reload on an unpacked
+extension, so the popup can be new code while the worker is old. Every symptom after that is a
+red herring — a green Test connection next to a 401 on trigger, most memorably.
+
+Both sides report the stamp in `lib/build.js`. A mismatch is exactly this situation, and the
+popup shows a banner offering `chrome.runtime.reload()`. **Bump `BUILD` whenever you change
+the service worker or anything it imports.**
+
+---
+
+## Working on it
+
+`dev/preview.html` opens the popup in a normal browser tab, with `dev/mock-chrome.js` stubbing
+the extension APIs and a fake Jenkins. No extension reload, no VPN.
 
 ```
 python3 -m http.server 8731
 open http://localhost:8731/dev/preview.html
-open http://localhost:8731/dev/options-preview.html
 ```
 
-Resize the window to 400×600 to match the real popup. Nothing in `dev/` ships.
+Resize to 400×600 to match the real popup. `dev/options-preview.html` does the same for the
+settings page; rather than copying its markup it lifts the real `options.html`'s style and
+sheet out of the file, so it cannot drift.
 
-`mock-chrome.js` replaces `fetch`, but only answers URLs on the fake Jenkins host and passes
-everything else to the real one; without that a harness page cannot load its own files.
+Harness storage persists to `sessionStorage` and seeds only a cold start, so a save that
+stores nothing does not look like one that worked — reseeding on every load is why an earlier
+version could not have caught a persistence bug. `?fresh` resets, `?empty` shows the
+fresh-profile state, `?stale` reproduces the stale-worker banner, `?full` makes every sync
+write fail the way a real one does at its quota. Serve with no-cache headers if you are
+iterating; a cached `options.html` looks exactly like a broken change.
 
-The source design lives in `design_handoff_jenkins_launcher/`. Tokens in `popup.css` are
-copied from it verbatim; icons are inlined Lucide paths in `lib/icons.js` rather than the
-prototype's Unicode placeholders.
+`./dev/shoot.sh` retakes the screenshots in `docs/` from the harness, so they show the same
+fixture every time and never a real controller's job names. Nothing in `dev/` or `docs/`
+ships.
 
-## Reloading during development
-
-Chrome does not always replace a running service worker when you hit Reload on an unpacked
-extension, so the popup can be new while the background script is still old code. Symptom:
-the popup looks right, Test connection is green, and triggering a build fails with an error
-message that no longer exists in the source.
-
-The popup checks for this every time it opens. `lib/build.js` exports a `BUILD` stamp that
-the popup and the worker each report from their own loaded copy. On a mismatch the popup
-shows a banner with a Reload button that calls `chrome.runtime.reload()`, which replaces the
-worker properly. Bump `BUILD` whenever you change `background.js` or anything it imports;
-if you forget, the check silently passes and you are back to guessing.
-
-Test connection makes the same comparison, and additionally catches settings you typed but
-never saved, since only its second check reads storage.
-
-## Tests
+### Tests
 
 ```
-node test/normalize.test.mjs
-node test/auth.test.mjs
+for t in test/*.test.mjs; do node "$t"; done
 ```
 
-`normalize` covers URL and root handling: reverse-proxy context paths, view segments, build
-and console suffixes, encoded branch names.
+Plain `node`, no framework. They cover the parts that are pure functions and easy to get
+subtly wrong: URL normalisation across job, build, console, view and reverse-proxy context
+paths; credential handling; display names and build labels; the run record's shape, using the
+same factory the worker uses so the harness cannot disagree with it; the blocking rule; and
+the subscription state machine.
 
-`auth` covers the credential path against a stubbed fetch: basic auth is sent when a token
-exists, missing credentials throw before any request goes out, cookie mode sends no auth
-header, `probe()` maps every failure to one of the three header states, and `triggerBuild`
-picks the right endpoint and returns the queue URL.
+### Layout
 
-## Settings
+```
+manifest.json      MV3 manifest
+background.js      service worker: triggering, polling, notifications
+popup.html/js/css  the popup
+options.html/js    settings
+lib/jenkins.js     REST client
+lib/store.js       storage layer
+lib/guard.js       whether a pipeline may be triggered
+lib/watch.js       what to say about a subscribed pipeline
+lib/format.js      display helpers, shared with the worker
+lib/icons.js       inlined Lucide paths
+lib/dom.js         element helpers
+lib/build.js       the staleness stamp
+```
 
-The connection has a Save button because saving it also asks Chrome for permission to reach
-the controller, and Chrome only grants that from a click. Everything else is a preference
-and writes as you change it, with the confirmation next to the control rather than at the
-top of the page.
+Icons are inlined Lucide path data, so the extension ships no icon font and makes no network
+request for chrome. Design tokens in `popup.css` are copied verbatim from the design handoff
+in `design_handoff_jenkins_launcher/`.
 
-That split exists because the single Save button sat under the connection fields, and a
-setting three sections further down looked like it had saved itself. It had not. Anything
-that appears to save on change now does.
-
-A refused write is reported rather than swallowed: `chrome.storage.sync` has its own quotas,
-and a rejection used to end up in an unhandled promise while the page said Saved. A deny
-pattern that will not compile is not written at all, since storing a rule the guard skips
-reads as blocking being broken rather than that line being wrong.
+---
 
 ## Known gaps
 
-- File parameters are not supported. `buildWithParameters` needs multipart for those.
-- Multibranch jobs must be starred at the branch level, since the top level is a folder.
+- File parameters are unsupported; `buildWithParameters` needs multipart for those.
 - Credentials and Run parameter types render as plain text inputs.
-- Search indexes to `searchDepth` folder levels (default 3). Deeper jobs are invisible to
+- Multibranch jobs must be starred at the branch level, since the top level is a folder.
+- Search indexes to `searchDepth` folder levels, three by default. Deeper jobs are invisible to
   search but can still be added by URL.
-- Re-running a finished run leaves out its password parameters. They are stripped before a
-  run is recorded, so there is nothing to replay and Jenkins falls back to its own defaults.
+- Re-running a finished build leaves out its password parameters, because they are stripped
+  before a run is recorded.
 - Subscription notifications need Chrome running and the controller reachable. There is no
-  push from Jenkins, only the 30-second alarm poll, which is Chrome's floor.
-- Untested against a live Jenkins controller.
+  push from Jenkins, only the thirty-second alarm.
+- Untested against a live Jenkins controller. Everything here is verified against the harness
+  and the unit tests.
 
 ## Roadmap
 
-Checked items are already implemented; the rest are not started. In the order they were
-asked for.
-
-- [x] **A toggle that blocks triggering.** The padlock beside a pipeline's name. With it
-      shut, Run and Trigger build open the job in a new tab instead of starting a build.
-
-- [x] **Regex deny-list for triggering.** Patterns in settings, matched against the full
-      path. Covers pipelines that are not starred and ones that do not exist yet.
-
-- [x] **Track a version number that changes mid-run.** The poller re-reads the build's
-      `displayName` on every tick, so a version the pipeline sets partway through appears on
-      the card. See the note under Activity if your pipelines publish the version somewhere
-      other than `displayName`.
-
-- [x] **Icon in the notification.** `announce()` passes `iconUrl: 'icons/128-mark.png'`.
-
-- [x] **Notify on failure.** A notification fires on every completion, and non-SUCCESS
-      results go out at `priority: 2`.
-
-- [ ] **Notify when a build fails to start.** The gap left by the item above: `pollAll()`
-      marks these `ERROR` without calling `announce()`, so a build that never begins is
-      silent.
-
-- [x] **Clicking the notification opens the run.** Handled in the
-      `chrome.notifications.onClicked` listener.
-
-- [x] **An eye button that opens the build.** It replaced the copy button rather than
-      joining it, since copying a URL was only ever a means of opening it.
-
-- [x] **Show the parent folder in the pipeline name.** `QA · Webmail` rather than bare
-      `QA`, on run cards, starred cards and notification titles. The job leads and the
-      folder trails, so the eye scans job names down the column. `qualifiedName()` in
-      `lib/format.js`; the full path is in the tooltip.
-
-- [x] **Re-run a finished run with the same parameters.** The circular-arrow button on a
-      finished run card, between the eye and dismiss buttons. It reads the values off the run
-      record rather than the pipeline's saved ones, so it reproduces what that build actually
-      used even if the saved values have been edited since, and for the same reason it does
-      not write them back as the new saved values. `rerun()` in `popup.js`, carried to the
-      worker as `remember: false` on the trigger message.
+- [ ] **Notify when a build fails to start.** `pollAll()` marks these `ERROR` without calling
+      `announce()`, so a build that never begins is silent.
 
 ## VPN
 
-Chrome has no VPN API, and an extension cannot bind its own traffic to a tunnel. The
-workable fix is split tunnelling at the OS level: with OpenVPN, add `route-nopull` plus an
-explicit `route` for the Jenkins subnet, so the tunnel can stay up all day while carrying
-only Jenkins traffic. Note that `route-nopull` also drops the pushed DNS.
+Chrome has no VPN API, and an extension cannot bind its own traffic to a tunnel. The workable
+fix is split tunnelling at the OS level: with OpenVPN, `route-nopull` plus an explicit `route`
+for the Jenkins subnet lets the tunnel stay up all day while carrying only Jenkins traffic.
+Note that `route-nopull` also drops the pushed DNS.

@@ -193,11 +193,11 @@ function flash(fieldset, text, kind) {
   const out = $(`${fieldset}-saved`);
   if (!out) return;
   out.textContent = text;
-  out.className = `hint ${kind}`;
+  out.className = `hint autosave ${kind}`;
   clearTimeout(flashTimers.get(fieldset));
   flashTimers.set(fieldset, setTimeout(() => {
     out.textContent = 'Saves automatically.';
-    out.className = 'hint';
+    out.className = 'hint autosave';
   }, kind === 'ok' ? 2000 : 6000));
 }
 
