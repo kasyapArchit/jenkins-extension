@@ -448,14 +448,21 @@ function runCard(run) {
   ]);
 }
 
+// Values only: a branch name or a build command says what it is without its key,
+// and the key doubles the length of a line that has to fit in 400px. The keys
+// are still in the tooltip for the rare ambiguous pair.
+//
 // Checkboxes are stored as real booleans, so their type is enough to leave them
-// out; a row full of FLAG=false says nothing about what this build was.
+// out; a row full of `false` says nothing about what this build was.
 function paramsLine(run) {
-  const shown = Object.entries(run.params || {})
-    .filter(([, v]) => typeof v !== 'boolean' && String(v).trim() !== '')
-    .map(([k, v]) => `${k}=${v}`)
-    .join(', ');
-  return shown ? el('div', { class: 'run-params', textContent: shown, title: shown }) : null;
+  const kept = Object.entries(run.params || {})
+    .filter(([, v]) => typeof v !== 'boolean' && String(v).trim() !== '');
+  if (!kept.length) return null;
+  return el('div', {
+    class: 'run-params',
+    textContent: kept.map(([, v]) => v).join(', '),
+    title: kept.map(([k, v]) => `${k}=${v}`).join('\n')
+  });
 }
 
 function runMeta(run) {

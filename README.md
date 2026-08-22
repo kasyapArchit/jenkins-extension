@@ -40,9 +40,12 @@ body opens the parameter form when you need to change something first. Drag the 
 reorder.
 
 **Activity** shows everything triggered from the extension, with the build number and the
-parameters each build ran with. Booleans are left out of that line: they are stored as real
-booleans, so their type is enough to filter them, and a row of `FLAG=false` says nothing
-about what the build was. Running builds tick every second, can be aborted via
+values each build ran with. Values only, not `KEY=value`: a branch name or a build command
+identifies itself, and the key doubles the length of a line that has to fit in 400px. The
+keys are in the tooltip. Booleans are left out entirely, since they are stored as real
+booleans so the type is enough to filter on, and a row of `false` says nothing about what
+the build was. The starred cards still show `KEY=value`, because there you are about to
+edit the values rather than read them back. Running builds tick every second, can be aborted via
 `POST <build>/stop`, and every row can copy its build URL. Finished rows are dismissed one
 at a time.
 
