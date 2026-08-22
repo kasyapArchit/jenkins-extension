@@ -248,7 +248,7 @@ asked for.
       `lib/format.js`; the full path is in the tooltip.
 
 - [ ] **Re-run a finished run with the same parameters.** An icon button on finished run
-      cards, sitting with copy and dismiss, that triggers the same pipeline again with
+      cards, sitting with the eye and dismiss buttons, that triggers the same pipeline with
       exactly the values that run used. The values are already on the record, so this reads
       them from the run rather than from the pipeline's current saved values, which may have
       moved on since.
