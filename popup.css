@@ -117,10 +117,6 @@ a:hover { text-decoration: underline; }
   font-size: 13px; font-weight: 550;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.result-folder {
-  font-size: 11px; color: var(--faint); font-family: var(--mono);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
 .result-last { font-size: 11px; color: var(--faint); flex: none; }
 .centered-note { padding: 26px 8px; text-align: center; font-size: 12px; color: var(--faint); }
 

@@ -287,10 +287,12 @@ function renderResults() {
       onmouseenter: () => { ui.activeResult = i; highlightResults(); }
     }, [
       starBtn,
-      el('div', { class: 'result-text' }, [
-        el('div', { class: 'result-name', textContent: job.name }),
-        el('div', { class: 'result-folder', textContent: job.fullName })
-      ]),
+      el('div', { class: 'result-text' },
+        el('div', {
+          class: 'result-name',
+          textContent: qualifiedName(job.fullName, job.name),
+          title: job.fullName || job.name
+        })),
       el('div', {
         class: 'result-last',
         textContent: job.lastBuildAt ? `${ago(job.lastBuildAt)} ago` : 'never run'

@@ -24,6 +24,10 @@ only declares `optional_host_permissions` instead of a blanket origin.
 controller's job list. The job index comes from one recursive `/api/json?tree=jobs[...]`
 call and is cached in `chrome.storage.session`, so typing is instant after the first load.
 
+Rows are named the same way everywhere else in the popup: `QA · Webmail`, with the full
+path on hover. Matching still runs against the full path, so typing a folder name finds the
+jobs inside it.
+
 Results can be run without starring. Every row has a Run button that triggers with the
 saved values, or the job's own Jenkins defaults the first time. Clicking the row instead
 expands the parameter form, fetched on demand, so values can be changed before triggering.
