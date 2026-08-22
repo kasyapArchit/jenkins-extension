@@ -20,6 +20,7 @@ for (const [key, id] of Object.entries(NOTIFY_ON)) $(id).checked = Boolean(saved
 toggleTokenFields();
 checkPatterns();
 lockLastNotifyKind();
+showUsage();
 
 $('authMode').addEventListener('change', toggleTokenFields);
 $('save').addEventListener('click', save);
@@ -121,12 +122,68 @@ async function save() {
   if (next.baseUrl && !(await grant(next.baseUrl))) {
     return status('Host permission declined, so requests would be blocked.', 'err');
   }
-  config = await store.saveConfig(next);
-  $('pollSeconds').value = config.pollSeconds;
-  $('searchDepth').value = config.searchDepth;
+
+  try {
+    config = await store.saveConfig(next);
+  } catch (err) {
+    // chrome.storage.sync rejects on its own quotas, and it used to do so
+    // silently here: the write failed, nothing was stored, and the page still
+    // said Saved. Anything that does not persist should say why.
+    return status(`Chrome refused to store the settings: ${err.message}`, 'err');
+  }
+
+  // Read back rather than trusting the write. This is the check that tells a
+  // real save apart from one that looked fine and stored nothing.
+  const stored = await store.getConfig();
+  if (!sameSettings(next, stored)) {
+    return status(
+      'The settings were written but did not read back the same. Check chrome://extensions '
+      + 'for an error on Jenkins Launcher.', 'err');
+  }
+
+  $('pollSeconds').value = stored.pollSeconds;
+  $('searchDepth').value = stored.searchDepth;
+  $('denyPatterns').value = (stored.denyPatterns || []).join('\n');
+  checkPatterns();
+
   await store.clearIndex();   // depth or host may have changed
   await chrome.runtime.sendMessage({ type: 'ensureAlarm' }).catch(() => {});
-  status('Saved.', 'ok');
+  status(`Saved. ${describe(stored)}`, 'ok');
+  showUsage();
+}
+
+// Compares what was asked for against what came back, on the fields that are
+// easy to lose. Not deep equality: token lives elsewhere and is not re-read.
+function sameSettings(asked, got) {
+  return asked.baseUrl === got.baseUrl
+    && asked.userId === got.userId
+    && asked.notifyStale === got.notifyStale
+    && asked.denyPatterns.join('\n') === (got.denyPatterns || []).join('\n');
+}
+
+const describe = c => {
+  const n = (c.denyPatterns || []).length;
+  return n ? `${n} block pattern${n > 1 ? 's' : ''} stored.` : 'No block patterns stored.';
+};
+
+// chrome.storage.sync caps at about 100 KB across everything, and a single item
+// at 8 KB. Starred pipelines carry their whole parameter definitions, so a busy
+// profile can reach it, and once it does every later write is rejected.
+async function showUsage() {
+  const out = $('storage-usage');
+  if (!out || !chrome.storage.sync.getBytesInUse) return;
+  try {
+    const used = await chrome.storage.sync.getBytesInUse(null);
+    const cap = chrome.storage.sync.QUOTA_BYTES || 102400;
+    const pct = Math.round((used / cap) * 100);
+    out.textContent = `Synced settings use ${used.toLocaleString()} of ${cap.toLocaleString()} bytes (${pct}%).`;
+    out.className = pct > 85 ? 'hint err' : 'hint';
+    if (pct > 85) {
+      out.textContent += ' Close to the limit — further saves may be refused. Unstar pipelines you no longer use.';
+    }
+  } catch {
+    out.textContent = '';
+  }
 }
 
 // Two checks, because they can disagree and that difference is the whole point.

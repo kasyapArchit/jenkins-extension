@@ -135,8 +135,16 @@ gets right that a first attempt would not:
   skipped entirely between polls are not reported at all.
 
 Watermarks are in `chrome.storage.local`, not sync: they are rewritten on every state change
-and sync refuses more than 1800 writes an hour. Builds the extension triggered itself are
-skipped, since the run list already announces those.
+and sync refuses more than 1800 writes an hour.
+
+Builds the extension triggered itself still notify, from the run list, exactly as they did
+before subscriptions existed. The subscription poll skips any build already in the run list,
+matched on job and build number, so subscribing to a pipeline you also trigger does not
+double up. Two consequences worth knowing: a build you start yourself never produces a
+"started" notification even with that kind switched on, because the run list does not send
+one and the subscription is suppressed; and if run tracking loses a build — the three-hour
+give-up, or the run list rolling past its cap — the subscription announces it, which is the
+right way round.
 
 Which moments are worth a notification is a setting, with at least one kind always on — the
 last box still ticked is disabled rather than validated on save. Notifications only arrive
@@ -297,6 +305,9 @@ picks the right endpoint and returns the queue URL.
 - Subscription notifications need Chrome running and the controller reachable. There is no
   push from Jenkins, only the 30-second alarm poll, which is Chrome's floor.
 - Untested against a live Jenkins controller.
+- `chrome.storage.sync` allows about 100 KB in total. Starred pipelines carry their whole
+  parameter definitions, so a large enough set can reach it, and Chrome then rejects every
+  later write. Settings shows the usage and reports a refused save rather than claiming one.
 
 ## Roadmap
 

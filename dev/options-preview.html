@@ -12,7 +12,9 @@
        page's style and sheet out of the file itself, so it cannot go stale. -->
   <script src="mock-chrome.js"></script>
   <script type="module">
-    const html = await (await fetch('../options.html')).text();
+    // no-store, because a cached copy of options.html silently hides every edit
+    // made since the page was last opened and looks exactly like a broken change.
+    const html = await (await fetch('../options.html', { cache: 'no-store' })).text();
     const doc = new DOMParser().parseFromString(html, 'text/html');
     document.head.append(...doc.head.querySelectorAll('style'));
     document.body.append(doc.querySelector('.sheet'));

@@ -1,11 +1,24 @@
 // Browser-only harness: stubs the extension APIs and a fake Jenkins so the
 // popup can be opened directly for design work. Never loaded by the extension.
 
-const areas = { sync: {}, local: {}, session: {} };
+// Backed by sessionStorage so a reload keeps what the page wrote, which is the
+// only way this harness can test that a setting actually persists. Reseeding on
+// every load would make any save look like it worked. ?fresh starts over.
+const PERSIST = 'jenkins-launcher-harness';
+if (new URLSearchParams(location.search).has('fresh')) sessionStorage.removeItem(PERSIST);
+
+const stored = sessionStorage.getItem(PERSIST);
+const areas = stored ? JSON.parse(stored) : { sync: {}, local: {}, session: {} };
+const flush = () => sessionStorage.setItem(PERSIST, JSON.stringify(areas));
 const changeListeners = [];
+
+const FULL = new URLSearchParams(location.search).has('full');
 
 function makeArea(name) {
   return {
+    async getBytesInUse() {
+      return FULL ? 99000 : JSON.stringify(areas[name]).length;
+    },
     async get(keys) {
       const src = areas[name];
       if (keys == null) return { ...src };
@@ -13,17 +26,22 @@ function makeArea(name) {
       return Object.fromEntries(list.filter(k => k in src).map(k => [k, structuredClone(src[k])]));
     },
     async set(obj) {
+      if (FULL && name === 'sync') {
+        throw new Error('QUOTA_BYTES quota exceeded');
+      }
       const changes = {};
       for (const [k, v] of Object.entries(obj)) {
         changes[k] = { oldValue: areas[name][k], newValue: v };
         areas[name][k] = structuredClone(v);
       }
+      flush();
       changeListeners.forEach(fn => fn(changes, name));
     },
     async remove(key) {
       const keys = [].concat(key);
       const changes = {};
       for (const k of keys) { changes[k] = { oldValue: areas[name][k] }; delete areas[name][k]; }
+      flush();
       changeListeners.forEach(fn => fn(changes, name));
     }
   };
@@ -37,7 +55,11 @@ globalThis.chrome = {
     sync: makeArea('sync'),
     local: makeArea('local'),
     session: makeArea('session'),
-    onChanged: { addListener: fn => changeListeners.push(fn) }
+    onChanged: { addListener: fn => changeListeners.push(fn) },
+    // Real sync has quotas that reject writes once they are reached. ?full
+    // pretends to be at the limit, which is the state the settings page has to
+    // report rather than claim a save that never happened.
+    QUOTA_BYTES: 102400
   },
   runtime: {
     openOptionsPage: () => console.log('[mock] openOptionsPage'),
@@ -186,6 +208,14 @@ const starred = starredNames.map(n => {
   };
 });
 
+// ?empty exercises the fresh-profile state: nothing starred, nothing triggered.
+const EMPTY = new URLSearchParams(location.search).has('empty');
+const SEEDED = Boolean(areas.sync.config);
+
+if (!SEEDED) seed();
+flush();
+
+function seed() {
 areas.sync.config = {
   baseUrl: 'https://frontend-jenkins', authMode: 'token', userId: 'a.kashyap',
   pollSeconds: 30, notify: true, searchDepth: 3,
@@ -195,8 +225,6 @@ areas.sync.config = {
   notifyStale: false
 };
 areas.local.token = 'mock';
-// ?empty exercises the fresh-profile state: nothing starred, nothing triggered.
-const EMPTY = new URLSearchParams(location.search).has('empty');
 
 areas.sync.starred = EMPTY ? [] : starred;
 // Storybook-Deploy is padlocked by hand, so both kinds of block are visible: one
@@ -233,3 +261,4 @@ areas.local.runs = EMPTY ? [] : [
     status: 'ERROR', error: 'Not permitted. The account may lack Build permission on this job.',
     startedAt: Date.now() - 300000, finishedAt: Date.now() - 300000 }
 ];
+}
