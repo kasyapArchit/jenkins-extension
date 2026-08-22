@@ -1,0 +1,126 @@
+:root {
+  --bg: #ffffff;
+  --fg: #1b1f24;
+  --muted: #6a737d;
+  --line: #e2e5e9;
+  --accent: #2f6fdb;
+  --ok: #1a7f37;
+  --fail: #c0392b;
+  --warn: #b8860b;
+  --chip: #f2f4f7;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16191d;
+    --fg: #e6e8ea;
+    --muted: #9aa3ad;
+    --line: #2b3037;
+    --accent: #6699ee;
+    --ok: #4ac26b;
+    --fail: #f0776a;
+    --warn: #e3b341;
+    --chip: #21262d;
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  width: 380px;
+  margin: 0;
+  font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+h1 { font-size: 13px; font-weight: 600; margin: 0; letter-spacing: .02em; }
+.head-actions { display: flex; gap: 4px; }
+
+button { font: inherit; cursor: pointer; }
+.icon-btn {
+  background: none; border: none; color: var(--muted);
+  font-size: 15px; line-height: 1; padding: 4px 6px; border-radius: 5px;
+}
+.icon-btn:hover { background: var(--chip); color: var(--fg); }
+.link-btn { background: none; border: none; color: var(--muted); font-size: 11px; padding: 0; text-decoration: underline; }
+
+.banner {
+  margin: 8px 12px 0; padding: 8px 10px; border-radius: 6px;
+  background: var(--chip); border-left: 3px solid var(--warn); font-size: 12px;
+}
+.banner.error { border-left-color: var(--fail); }
+
+ul { list-style: none; margin: 0; padding: 0; }
+
+.section-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 10px 12px 4px; font-size: 11px; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--muted);
+}
+.runs { border-bottom: 1px solid var(--line); }
+.run {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 12px; font-size: 12px;
+}
+.run a { color: inherit; text-decoration: none; flex: 1; min-width: 0; }
+.run a:hover { text-decoration: underline; }
+.run .name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.run .sub { color: var(--muted); font-size: 11px; }
+
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; background: var(--muted); }
+.dot.building { background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
+.dot.queued { background: var(--warn); }
+.dot.SUCCESS { background: var(--ok); }
+.dot.FAILURE, .dot.error { background: var(--fail); }
+.dot.ABORTED, .dot.UNSTABLE { background: var(--warn); }
+@keyframes pulse { 50% { opacity: .3; } }
+
+.pipeline { border-bottom: 1px solid var(--line); }
+.row { display: flex; align-items: center; gap: 6px; padding: 8px 12px; }
+.row .title { flex: 1; min-width: 0; }
+.row .title b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .title span { color: var(--muted); font-size: 11px; }
+
+.run-btn {
+  background: var(--accent); color: #fff; border: none;
+  padding: 5px 12px; border-radius: 5px; font-weight: 600; font-size: 12px;
+}
+.run-btn:hover { filter: brightness(1.08); }
+.run-btn:disabled { opacity: .5; cursor: default; }
+
+.params { padding: 0 12px 10px; display: grid; gap: 8px; }
+.field { display: grid; gap: 3px; }
+.field label { font-size: 11px; color: var(--muted); }
+.field label .desc { display: block; font-size: 10px; opacity: .8; }
+.field input[type=text], .field input[type=password], .field select, .field textarea {
+  font: inherit; padding: 5px 7px; border: 1px solid var(--line);
+  border-radius: 5px; background: var(--bg); color: var(--fg); width: 100%;
+}
+.field.bool { display: flex; align-items: center; gap: 6px; }
+.field.bool label { font-size: 12px; color: var(--fg); }
+.params-actions { display: flex; gap: 6px; align-items: center; }
+.params-actions .spacer { flex: 1; }
+.ghost-btn {
+  background: none; border: 1px solid var(--line); color: var(--fg);
+  padding: 4px 10px; border-radius: 5px; font-size: 12px;
+}
+.ghost-btn.danger { color: var(--fail); }
+.row-error { color: var(--fail); font-size: 11px; padding: 0 12px 8px; }
+
+.empty { color: var(--muted); padding: 18px 12px; text-align: center; margin: 0; }
+
+.add { display: flex; gap: 6px; padding: 10px 12px; border-top: 1px solid var(--line); }
+.add input {
+  flex: 1; font: inherit; padding: 5px 7px; border: 1px solid var(--line);
+  border-radius: 5px; background: var(--bg); color: var(--fg); min-width: 0;
+}
+.add button {
+  background: none; border: 1px solid var(--line); color: var(--fg);
+  padding: 5px 12px; border-radius: 5px;
+}

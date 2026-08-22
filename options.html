@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Jenkins Launcher settings</title>
+  <link rel="stylesheet" href="popup.css">
+  <style>
+    body { width: auto; max-width: 620px; margin: 0 auto; padding: 24px 20px 40px; }
+    h1 { font-size: 18px; margin: 0 0 4px; }
+    .lede { color: var(--muted); margin: 0 0 20px; }
+    fieldset { border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin: 0 0 16px; }
+    legend { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 0 4px; }
+    .field { margin-bottom: 12px; }
+    .field label { display: block; font-size: 12px; margin-bottom: 3px; }
+    .field .hint { color: var(--muted); font-size: 11px; margin-top: 3px; }
+    input[type=text], input[type=password], input[type=url], input[type=number], select {
+      font: inherit; width: 100%; padding: 6px 8px; border: 1px solid var(--line);
+      border-radius: 5px; background: var(--bg); color: var(--fg);
+    }
+    .inline { display: flex; align-items: center; gap: 8px; }
+    .inline input[type=checkbox] { margin: 0; }
+    .actions { display: flex; align-items: center; gap: 10px; }
+    #status { font-size: 12px; }
+    #status.ok { color: var(--ok); }
+    #status.err { color: var(--fail); }
+    code { background: var(--chip); padding: 1px 4px; border-radius: 3px; }
+    ol { padding-left: 20px; color: var(--muted); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Jenkins Launcher</h1>
+  <p class="lede">Point the extension at your Jenkins controller once, then star pipelines from the popup.</p>
+
+  <fieldset>
+    <legend>Connection</legend>
+    <div class="field">
+      <label for="baseUrl">Jenkins base URL</label>
+      <input id="baseUrl" type="url" placeholder="https://jenkins.internal.example.com">
+      <div class="hint">No trailing path. This is the host your VPN reaches.</div>
+    </div>
+    <div class="field">
+      <label for="authMode">Authentication</label>
+      <select id="authMode">
+        <option value="token">API token (recommended)</option>
+        <option value="cookie">Reuse my browser session</option>
+      </select>
+      <div class="hint">API token skips Jenkins CSRF checks. Session mode needs you logged in to Jenkins in this browser and fetches a crumb per build.</div>
+    </div>
+    <div id="token-fields">
+      <div class="field">
+        <label for="username">User ID</label>
+        <input id="username" type="text" autocomplete="off" placeholder="a.kumar">
+      </div>
+      <div class="field">
+        <label for="token">API token</label>
+        <input id="token" type="password" autocomplete="off">
+        <div class="hint">Create one at <code>/me/security</code> on your Jenkins. Stored in this profile's extension storage, unencrypted.</div>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="save" class="run-btn">Save</button>
+      <button id="test" class="ghost-btn">Test connection</button>
+      <span id="status"></span>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Status tracking</legend>
+    <div class="field">
+      <label for="pollSeconds">Poll interval (seconds)</label>
+      <input id="pollSeconds" type="number" min="30" max="600" step="10">
+      <div class="hint">Chrome will not fire alarms faster than every 30 seconds.</div>
+    </div>
+    <div class="field inline">
+      <input id="notify" type="checkbox">
+      <label for="notify">Desktop notification when a build finishes</label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Getting a token</legend>
+    <ol>
+      <li>Open Jenkins, click your name, then Security.</li>
+      <li>Add new token, name it "chrome extension", copy the value.</li>
+      <li>Paste it above with your Jenkins user ID and save.</li>
+    </ol>
+  </fieldset>
+
+  <script type="module" src="options.js"></script>
+</body>
+</html>

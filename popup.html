@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+  <title>Jenkins Launcher</title>
+</head>
+<body>
+  <header>
+    <h1>Pipelines</h1>
+    <div class="head-actions">
+      <button id="refresh" class="icon-btn" title="Refresh status">&#8635;</button>
+      <button id="settings" class="icon-btn" title="Settings">&#9881;</button>
+    </div>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <section id="runs" class="runs" hidden>
+    <div class="section-head">
+      <span>Recent runs</span>
+      <button id="clear-runs" class="link-btn">clear finished</button>
+    </div>
+    <ul id="run-list"></ul>
+  </section>
+
+  <section id="list-wrap">
+    <ul id="pipeline-list"></ul>
+    <p id="empty" class="empty" hidden>No pipelines starred yet. Paste a Jenkins job URL below.</p>
+  </section>
+
+  <form id="add-form" class="add">
+    <input id="add-url" type="url" placeholder="https://jenkins/job/Folder/job/My-Job/" required>
+    <button type="submit" id="add-btn">Add</button>
+  </form>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
