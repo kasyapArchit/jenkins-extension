@@ -500,7 +500,11 @@ function runCard(run) {
           ? el('div', { class: 'run-error', textContent: run.error || 'Failed to start' })
           : paramsLine(run)
     ]),
-    ...buttons
+    // Grouped rather than spread into the row: the row's 10px gap is the spacing
+    // between name, values and controls, which is too loose between the controls
+    // themselves. Dropped entirely when there are none, so an empty group cannot
+    // add a gap of its own.
+    buttons.length ? el('div', { class: 'run-actions' }, buttons) : null
   ]);
 }
 

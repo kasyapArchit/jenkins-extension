@@ -147,6 +147,7 @@ a:hover { text-decoration: underline; }
   font-size: 11px; color: var(--faint); font-family: var(--mono); margin-top: 2px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.run-actions { display: flex; align-items: center; gap: 4px; flex: none; }
 .abort-btn {
   flex: none; border: 1px solid var(--line); background: var(--panel); color: var(--fail);
   font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 7px;
