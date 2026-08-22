@@ -46,11 +46,15 @@ globalThis.chrome = {
         const runs = areas.local.runs || [];
         // Mirrors the worker: starred entry wins, otherwise the job the popup sent.
         const p = (areas.sync.starred || []).find(x => x.id === msg.pipelineId) || msg.job;
+        // Uses the real factory, so the harness cannot disagree with the worker
+        // about the run shape the way it did when params went missing.
+        const { newRun } = await import('../lib/store.js');
         runs.unshift({
-          id: `${msg.pipelineId}::${Date.now()}`, jobId: msg.pipelineId, name: p.name,
-          url: `${p.url}/${++BUILD}`, build: BUILD, status: 'RUNNING',
-          params: msg.persist ?? msg.params,
-          startedAt: Date.now(), finishedAt: null
+          ...newRun({
+            jobId: msg.pipelineId, name: p.name, jobUrl: p.url,
+            queueUrl: null, params: msg.persist ?? msg.params
+          }),
+          url: `${p.url}/${++BUILD}`, build: BUILD
         });
         await chrome.storage.local.set({ runs });
         return { ok: true };

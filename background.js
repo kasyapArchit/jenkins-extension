@@ -74,19 +74,13 @@ async function trigger(pipelineId, params, persist, job) {
   // would silently star every pipeline run from search.
   if (entry) await store.star({ id: pipelineId, lastRunAt: Date.now() });
 
-  const run = await store.addRun({
-    id: `${pipelineId}::${Date.now()}`,
+  const run = await store.addRun(store.newRun({
     jobId: pipelineId,
     name: pipeline.name,
     jobUrl: pipeline.url,
     queueUrl,
-    url: null,
-    build: null,
-    status: queueUrl ? 'QUEUED' : 'RUNNING',
-    startedAt: Date.now(),
-    finishedAt: null,
-    error: null
-  });
+    params: persist ?? params
+  }));
 
   await ensureAlarm();
   pollAll();
