@@ -111,6 +111,34 @@ before it is starred. The padlock only appears on a search row that is already b
 because a row carrying star, padlock, name, time and Run inside 400px leaves the name
 nothing. Star it first, or write a pattern.
 
+**Subscribing** notifies you whenever a pipeline runs, whoever started it, which the run
+list cannot do: it only knows about builds this extension asked for. The bell is in the
+parameter panel, the one surface a starred card and a search result share, so a pipeline can
+be subscribed without being starred; a small bell on the collapsed row reports the state.
+
+Each poll asks every subscription for `lastBuild[number,building,result,timestamp,duration]`
+and compares it with a watermark. A higher number is a start, a verdict on the number we were
+watching is a finish. Deciding that lives in `lib/watch.js`, pure and tested. Three details it
+gets right that a first attempt would not:
+
+- The first sight of a pipeline is recorded silently. Otherwise subscribing announces
+  whatever happened to run last.
+- Jenkins reports `building: false` with `result: null` for a moment at the end of a build.
+  A build counts as over only once it has a verdict, or every finish would announce a
+  failure that never happened.
+- A build that starts and finishes inside one poll reports the finish only, and builds
+  skipped entirely between polls are not reported at all.
+
+Watermarks are in `chrome.storage.local`, not sync: they are rewritten on every state change
+and sync refuses more than 1800 writes an hour. Builds the extension triggered itself are
+skipped, since the run list already announces those.
+
+Which moments are worth a notification is a setting, with at least one kind always on — the
+last box still ticked is disabled rather than validated on save. Notifications only arrive
+while Chrome is running and the controller is reachable, so a reconnect after the VPN drops
+finds a pile of finished builds at once; anything that happened more than two minutes ago is
+dropped unless the missed-builds setting says otherwise.
+
 **Add by URL** at the bottom takes any Jenkins URL containing the job (build page, console,
 job page) and trims it down to the job path.
 
@@ -142,6 +170,8 @@ poll interval. Elapsed times still tick every second while the popup is open.
 |---|---|---|
 | `config` (base URL, user ID, poll interval, notify, search depth, deny patterns) | `sync` | follows your Chrome profile |
 | `blocked` (pipeline ids blocked by hand) | `sync` | follows your Chrome profile |
+| `subscriptions` (pipelines to watch) | `sync` | follows your Chrome profile |
+| `watch` (last build seen per subscription) | `local` | written per build; sync would hit its write quota |
 | `starred` (ordered), `paramValues` | `sync` | same |
 | `token` | `local` | see below |
 | `runs` | `local` | machine-specific, and noisy for sync quota |
@@ -259,6 +289,8 @@ picks the right endpoint and returns the queue URL.
   search but can still be added by URL.
 - Re-running a finished run leaves out its password parameters. They are stripped before a
   run is recorded, so there is nothing to replay and Jenkins falls back to its own defaults.
+- Subscription notifications need Chrome running and the controller reachable. There is no
+  push from Jenkins, only the 30-second alarm poll, which is Chrome's floor.
 - Untested against a live Jenkins controller.
 
 ## Roadmap

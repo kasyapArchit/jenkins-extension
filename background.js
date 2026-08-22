@@ -3,6 +3,7 @@ import * as jenkins from './lib/jenkins.js';
 import { BUILD } from './lib/build.js';
 import { qualifiedName, buildLabel } from './lib/format.js';
 import { blockReason } from './lib/guard.js';
+import { nextEvent, eventTime, isStale, wants } from './lib/watch.js';
 
 const ALARM = 'poll-runs';
 const GIVE_UP_MS = 3 * 60 * 60 * 1000;   // stop chasing a run after three hours
@@ -127,10 +128,76 @@ async function pollAll() {
         await store.updateRun(run.id, { status: 'ERROR', error: err.message, finishedAt: Date.now() });
       }
     }
+    await pollSubscriptions(config);
     await refreshBadge();
   } finally {
     polling = false;
   }
+}
+
+/* ---------- subscriptions ---------- */
+
+// Watches pipelines whoever starts them, which the run list cannot do: it only
+// knows about builds this extension asked for.
+async function pollSubscriptions(config) {
+  const subs = await store.getSubscriptions();
+  const marks = await store.getWatch();
+
+  // Marks for pipelines no longer subscribed would otherwise accumulate forever,
+  // and a re-subscribe would compare against a stale number and announce a build
+  // that finished weeks ago.
+  const next = {};
+  if (!subs.length) {
+    if (Object.keys(marks).length) await store.setWatch(next);
+    return;
+  }
+
+  // Builds this extension started are already tracked and announced by the run
+  // list. Without this a pipeline you both subscribed to and triggered would
+  // notify twice for the same build.
+  const ours = new Set((await store.getRuns()).map(r => `${r.jobId}::${r.build}`));
+
+  for (const sub of subs) {
+    let build;
+    try {
+      build = await jenkins.getLastBuild(sub.url, config);
+    } catch {
+      // Off the VPN, renamed, or permissions changed. Keep the existing mark so
+      // reconnecting compares against what we last really saw.
+      if (marks[sub.id]) next[sub.id] = marks[sub.id];
+      continue;
+    }
+
+    const ev = nextEvent(marks[sub.id], build);
+    if (!ev) continue;
+    next[sub.id] = ev.mark;
+    if (ev.kind && !ours.has(`${sub.id}::${build.number}`)) {
+      await announceEvent(sub, ev, config);
+    }
+  }
+
+  await store.setWatch(next);
+}
+
+const HEADLINE = { started: 'started', deployed: 'deployed', failed: 'failed' };
+
+async function announceEvent(sub, ev, config) {
+  if (config.notify === false) return;
+  if (!wants(ev.kind, config.notifyOn)) return;
+
+  const at = eventTime(ev.build, ev.kind);
+  if (!config.notifyStale && isStale(at)) return;
+
+  const label = ev.build.displayName?.trim() || `#${ev.build.number}`;
+  chrome.notifications.create(`sub::${ev.build.number}::${sub.url}`, {
+    type: 'basic',
+    iconUrl: 'icons/128-mark.png',
+    title: `${qualifiedName(sub.fullName, sub.name)} ${label} ${HEADLINE[ev.kind]}`,
+    message: ev.kind === 'started'
+      ? 'A build you subscribe to has started.'
+      : `A build you subscribe to ${ev.kind === 'deployed' ? 'finished successfully' : `finished: ${ev.build.result}`}.`,
+    priority: ev.kind === 'failed' ? 2 : 0
+  });
 }
 
 async function advance(run, config) {
@@ -183,6 +250,15 @@ async function announce(run, config) {
 }
 
 chrome.notifications?.onClicked.addListener(async id => {
+  // Subscription ids carry their own target, since the build was never in the
+  // run list to look up. The job URL is last because it contains slashes and
+  // colons of its own but never a '::'.
+  if (id.startsWith('sub::')) {
+    const [, number, ...rest] = id.split('::');
+    const jobUrl = rest.join('::');
+    if (jobUrl) chrome.tabs.create({ url: `${jobUrl}/${number}` });
+    return;
+  }
   const run = (await store.getRuns()).find(r => `${r.id}::done` === id);
   if (run?.url) chrome.tabs.create({ url: run.url });
 });

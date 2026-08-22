@@ -190,7 +190,9 @@ areas.sync.config = {
   baseUrl: 'https://frontend-jenkins', authMode: 'token', userId: 'a.kashyap',
   pollSeconds: 30, notify: true, searchDepth: 3,
   // Catches web-prod-deploy, which is starred, so the pattern case is on screen.
-  denyPatterns: ['prod']
+  denyPatterns: ['prod'],
+  notifyOn: { triggered: false, deployed: true, failed: true },
+  notifyStale: false
 };
 areas.local.token = 'mock';
 // ?empty exercises the fresh-profile state: nothing starred, nothing triggered.
@@ -200,6 +202,11 @@ areas.sync.starred = EMPTY ? [] : starred;
 // Storybook-Deploy is padlocked by hand, so both kinds of block are visible: one
 // the popup can lift, one only settings can.
 areas.sync.blocked = EMPTY ? [] : [starred[2].id];
+// One subscription, so the bell mark and the toggled bell are both on screen.
+areas.sync.subscriptions = EMPTY ? [] : [{
+  id: starred[1].id, url: starred[1].url,
+  name: starred[1].name, fullName: starred[1].fullName
+}];
 areas.sync.paramValues = EMPTY ? {} : {
   [starred[0].id]: { CLEAN_INSTALL: false, DELETE_YARN_CACHE_DIR: false, BRANCH: 'develop', BUILD_CMD: 'qaStaging' }
 };

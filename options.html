@@ -114,6 +114,33 @@
     </fieldset>
 
     <fieldset>
+      <legend>SUBSCRIPTIONS</legend>
+      <p class="lede" style="margin-bottom:14px">
+        Subscribe to a pipeline from the bell in its parameter panel and you are notified
+        whenever it runs, whoever started it. These choose which moments are worth a
+        notification; at least one has to stay on.
+      </p>
+
+      <div class="field inline"><input id="on-triggered" type="checkbox">
+        <label for="on-triggered">When a build starts</label></div>
+      <div class="field inline"><input id="on-deployed" type="checkbox">
+        <label for="on-deployed">When a build succeeds</label></div>
+      <div class="field inline"><input id="on-failed" type="checkbox">
+        <label for="on-failed">When a build fails</label></div>
+
+      <div class="field inline" style="margin-top:14px">
+        <input id="notifyStale" type="checkbox">
+        <label for="notifyStale">Also tell me about builds I missed</label>
+      </div>
+      <div class="hint">
+        Notifications only arrive while Chrome is running and the controller is reachable.
+        Off the VPN or with Chrome closed, builds pile up and all announce themselves at
+        once on reconnect. Leave this unchecked to drop anything that already happened more
+        than two minutes ago.
+      </div>
+    </fieldset>
+
+    <fieldset>
       <legend>SEARCH</legend>
       <div class="field">
         <label for="searchDepth">Folder depth to index</label>

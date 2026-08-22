@@ -5,6 +5,7 @@ import { BUILD } from './lib/build.js';
 import { $, el, clear, elapsed, ago } from './lib/dom.js';
 import { qualifiedName, buildLabel } from './lib/format.js';
 import { blockReason, isPatternBlock } from './lib/guard.js';
+import { anyWanted } from './lib/watch.js';
 
 const MAX_RESULTS = 7;
 const SEARCH_DEBOUNCE_MS = 200;
@@ -13,6 +14,7 @@ let config = null;
 let starred = [];
 let paramValues = {};
 let blocked = [];             // pipeline ids blocked by hand
+let subscribed = [];          // pipelines being watched whoever starts them
 let runs = [];
 let index = null;             // flat job list, null until loaded
 let indexError = null;
@@ -39,9 +41,9 @@ const ui = {
 init();
 
 async function init() {
-  [config, starred, paramValues, blocked, runs] = await Promise.all([
+  [config, starred, paramValues, blocked, subscribed, runs] = await Promise.all([
     store.getConfig(), store.getStarred(), store.getAllParamValues(),
-    store.getBlocked(), store.getRuns()
+    store.getBlocked(), store.getSubscriptions(), store.getRuns()
   ]);
 
   mountChrome();
@@ -299,6 +301,7 @@ function renderResults() {
       // an unblocked pipeline is the normal case that needs no mark. Blocking
       // one from search therefore means starring it first, or writing a pattern.
       el('div', { class: 'result-text' }, [
+        bellMark(job.id),
         held ? lockButton(job, renderResults) : null,
         el('div', {
           class: 'result-name',
@@ -665,6 +668,7 @@ function pipelineCard(p) {
           textContent: qualifiedName(p.fullName, p.name),
           title: p.fullName || p.name
         }),
+        bellMark(p.id),
         lockButton(p, renderStarred),
         // One chevron rotated by CSS rather than two swapped: a swap cannot animate.
         el('span', { class: 'caret' }, icon('chevron-right', { size: 12 }))
@@ -774,7 +778,7 @@ function paramPanel(p, isStarred = true) {
   });
   const sync = el('button', {
     class: 'outline-btn', title: 'Re-read parameters from Jenkins',
-    textContent: 'Sync params',
+    textContent: 'Sync',
     onclick: e => syncParams(p, e.currentTarget)
   });
   const starToggle = el('button', {
@@ -786,7 +790,9 @@ function paramPanel(p, isStarred = true) {
     })
   }, icon('star', { size: 13, fill: isStarred }));
 
-  panel.append(el('div', { class: 'panel-actions' }, [trigger, sync, starToggle]));
+  const rerender = () => (isStarred ? renderStarred() : renderResults());
+  panel.append(el('div', { class: 'panel-actions' },
+    [trigger, sync, bellButton(p, rerender), starToggle]));
 
   const err = ui.errors.get(p.id);
   if (err) panel.append(el('div', { class: 'field-error', textContent: err }));
@@ -855,6 +861,40 @@ async function syncParams(p, btn) {
     renderStarred();
   }
 }
+
+/* ---------- subscriptions ---------- */
+
+const isSubscribed = id => subscribed.some(p => p.id === id);
+
+// Lives in the expanded panel rather than on the row. The row is the same 400px
+// that already refused the padlock, and the panel is the one surface a starred
+// card and a search result share, so subscribing works without starring first.
+function bellButton(p, rerender) {
+  const on = isSubscribed(p.id);
+  const off = !anyWanted(config?.notifyOn);
+  return el('button', {
+    class: `bell-btn${on ? ' on' : ''}`,
+    title: on
+      ? off
+        ? 'Subscribed, but every notification kind is switched off in settings.'
+        : 'Subscribed. Click to stop being notified about this pipeline.'
+      : 'Notify me whenever this pipeline runs, whoever starts it.',
+    onclick: async e => {
+      e.stopPropagation();
+      subscribed = on
+        ? await store.unsubscribe(p.id)
+        : await store.subscribe({ id: p.id, url: p.url, name: p.name, fullName: p.fullName });
+      rerender();
+    }
+  }, icon('bell', { size: 13, fill: on }));
+}
+
+// A mark, not a button: the collapsed row says a pipeline is watched, and the
+// panel is where that is changed.
+const bellMark = id => (isSubscribed(id)
+  ? el('span', { class: 'bell-mark', title: 'Subscribed to this pipeline' },
+      icon('bell', { size: 11, fill: true }))
+  : null);
 
 /* ---------- blocking ---------- */
 
@@ -1054,6 +1094,11 @@ async function onStorageChanged(changes, area) {
   }
   if (area === 'sync' && changes.paramValues) {
     paramValues = changes.paramValues.newValue || {};
+  }
+  if (area === 'sync' && changes.subscriptions) {
+    subscribed = changes.subscriptions.newValue || [];
+    renderStarred();
+    renderResults();
   }
   if (area === 'sync' && changes.blocked) {
     blocked = changes.blocked.newValue || [];

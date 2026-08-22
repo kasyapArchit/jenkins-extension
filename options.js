@@ -2,6 +2,7 @@ import * as store from './lib/store.js';
 import * as jenkins from './lib/jenkins.js';
 import { BUILD } from './lib/build.js';
 import { blockReason, firstBadPattern } from './lib/guard.js';
+import { NOTIFY_ON_DEFAULTS } from './lib/watch.js';
 
 const $ = id => document.getElementById(id);
 const TEXT_FIELDS = ['baseUrl', 'authMode', 'userId', 'token', 'pollSeconds', 'searchDepth'];
@@ -9,15 +10,34 @@ const TEXT_FIELDS = ['baseUrl', 'authMode', 'userId', 'token', 'pollSeconds', 's
 let config = await store.getConfig();
 for (const f of TEXT_FIELDS) $(f).value = config[f] ?? '';
 $('notify').checked = config.notify !== false;
+$('notifyStale').checked = config.notifyStale === true;
 $('denyPatterns').value = (config.denyPatterns || []).join('\n');
+
+const NOTIFY_ON = { triggered: 'on-triggered', deployed: 'on-deployed', failed: 'on-failed' };
+const savedOn = { ...NOTIFY_ON_DEFAULTS, ...(config.notifyOn || {}) };
+for (const [key, id] of Object.entries(NOTIFY_ON)) $(id).checked = Boolean(savedOn[key]);
+
 toggleTokenFields();
 checkPatterns();
+lockLastNotifyKind();
 
 $('authMode').addEventListener('change', toggleTokenFields);
 $('save').addEventListener('click', save);
 $('test').addEventListener('click', test);
 $('denyPatterns').addEventListener('input', checkPatterns);
 $('denyTest').addEventListener('input', checkPatterns);
+for (const id of Object.values(NOTIFY_ON)) {
+  $(id).addEventListener('change', lockLastNotifyKind);
+}
+
+// A subscription that announces nothing is a subscription that does nothing, so
+// the last box still ticked is disabled rather than validated on save. Nothing
+// to read, nothing to undo: it simply will not come off.
+function lockLastNotifyKind() {
+  const boxes = Object.values(NOTIFY_ON).map($);
+  const on = boxes.filter(b => b.checked);
+  for (const b of boxes) b.disabled = on.length === 1 && b.checked;
+}
 
 function toggleTokenFields() {
   $('token-fields').hidden = $('authMode').value !== 'token';
@@ -37,6 +57,9 @@ function collect() {
     pollSeconds: clamp(Number($('pollSeconds').value) || 30, 30, 600),
     searchDepth: clamp(Number($('searchDepth').value) || 3, 1, 6),
     notify: $('notify').checked,
+    notifyStale: $('notifyStale').checked,
+    notifyOn: Object.fromEntries(
+      Object.entries(NOTIFY_ON).map(([key, id]) => [key, $(id).checked])),
     denyPatterns: readPatterns()
   };
 }
