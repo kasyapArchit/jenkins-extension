@@ -238,8 +238,9 @@ asked for.
 - [x] **An eye button that opens the build.** It replaced the copy button rather than
       joining it, since copying a URL was only ever a means of opening it.
 
-- [x] **Show the parent folder in the pipeline name.** `Webmail/QA` rather than bare `QA`,
-      on run cards, starred cards and notification titles. `qualifiedName()` in
+- [x] **Show the parent folder in the pipeline name.** `QA · Webmail` rather than bare
+      `QA`, on run cards, starred cards and notification titles. The job leads and the
+      folder trails, so the eye scans job names down the column. `qualifiedName()` in
       `lib/format.js`; the full path is in the tooltip.
 
 - [ ] **Re-run a finished run with the same parameters.** An icon button on finished run

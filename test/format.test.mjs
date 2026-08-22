@@ -2,16 +2,16 @@
 import { qualifiedName, buildLabel } from '../lib/format.js';
 
 const cases = [
-  [['Webmail/QA', 'QA'],            'Webmail/QA'],
-  [['Drive-web/QA', 'QA'],          'Drive-web/QA'],
-  [['Email-Backup/QA', 'QA'],       'Email-Backup/QA'],
+  [['Webmail/QA', 'QA'],            'QA · Webmail'],
+  [['Drive-web/QA', 'QA'],          'QA · Drive-web'],
+  [['Email-Backup/QA', 'QA'],       'QA · Email-Backup'],
   [['QA', 'QA'],                    'QA'],           // root job keeps its bare name
-  [['Frontend/Sub/QA', 'QA'],       'Sub/QA'],       // immediate parent, not the top folder
+  [['Frontend/Sub/QA', 'QA'],       'QA · Sub'], // immediate parent, not the top folder
   [['', 'QA'],                      'QA'],
   [[null, 'QA'],                    'QA'],
   [[undefined, 'QA'],               'QA'],
-  [['Folder/job-path', 'Display'],  'Folder/Display'],
-  [['Folder/only', null],           'Folder/only'],
+  [['Folder/job-path', 'Display'],  'Display · Folder'],
+  [['Folder/only', null],           'only · Folder'],
 ];
 
 let failed = 0;
