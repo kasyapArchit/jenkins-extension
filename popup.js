@@ -13,9 +13,14 @@ let runs = [];
 let index = null;             // flat job list, null until loaded
 let indexError = null;
 
+// Parameter definitions for jobs that are not starred, so search can trigger
+// them without a round trip on every keystroke.
+const jobMeta = new Map();
+
 const ui = {
   query: '',
   openId: null,
+  openResult: null,       // search result whose parameter panel is expanded
   addOpen: false,
   connection: 'checking',     // checking | online | offline | unauthorized
   activeResult: 0,
@@ -65,6 +70,7 @@ function renderAll() {
   renderHeader();
   renderBanner();
   renderMode();
+  renderResults();
   renderActivity();
   renderStarred();
   renderFooter();
@@ -230,15 +236,26 @@ function renderResults() {
 
   hits.forEach((job, i) => {
     const on = starred.some(p => p.id === job.id);
+    const open = ui.openResult === job.id;
+    const busy = ui.busy.has(job.id);
+
     const starBtn = el('button', {
       class: `star-btn${on ? ' on' : ''}`,
       title: on ? 'Unstar' : 'Star',
       onclick: e => { e.stopPropagation(); toggleStar(job); }
     }, icon('star', { size: 14, fill: on }));
 
-    wrap.append(el('div', {
+    const runBtn = el('button', {
+      class: 'run-btn compact',
+      textContent: busy ? '…' : 'Run',
+      disabled: busy,
+      title: 'Trigger with the saved or default parameters',
+      onclick: e => { e.stopPropagation(); runJob(job); }
+    });
+
+    const row = el('div', {
       class: `result${i === ui.activeResult ? ' active' : ''}`,
-      onclick: () => activateResult(job),
+      onclick: () => toggleResult(job),
       onmouseenter: () => { ui.activeResult = i; highlightResults(); }
     }, [
       starBtn,
@@ -246,13 +263,79 @@ function renderResults() {
         el('div', { class: 'result-name', textContent: job.name }),
         el('div', { class: 'result-folder', textContent: job.fullName })
       ]),
-      el('div', { class: 'result-last', textContent: job.lastBuildAt ? `${ago(job.lastBuildAt)} ago` : 'never run' })
-    ]));
+      el('div', {
+        class: 'result-last',
+        textContent: job.lastBuildAt ? `${ago(job.lastBuildAt)} ago` : 'never run'
+      }),
+      runBtn
+    ]);
+
+    const card = el('div', { class: `result-card${open ? ' open' : ''}` }, row);
+
+    if (open) {
+      const p = pipelineFor(job);
+      card.append(p
+        ? paramPanel(p, on)
+        : el('div', { class: 'panel' }, el('div', {
+            class: 'pdesc', textContent: ui.errors.get(job.id) || 'Reading parameters…'
+          })));
+    }
+    wrap.append(card);
   });
 }
 
+// The pipeline shape the parameter panel and trigger path expect. A starred
+// entry wins; otherwise it is assembled from the search hit plus whatever
+// definitions have been fetched. Null means the definitions are not in yet.
+function pipelineFor(job) {
+  const entry = starred.find(x => x.id === job.id);
+  if (entry) return entry;
+  const meta = jobMeta.get(job.id);
+  if (!meta) return null;
+  return {
+    id: job.id,
+    url: job.url,
+    name: meta.name || job.name,
+    fullName: meta.fullName || job.fullName,
+    folder: meta.fullName || job.fullName,
+    params: meta.params,
+    lastRunAt: meta.lastBuildAt ?? job.lastBuildAt ?? null
+  };
+}
+
+async function loadMeta(job) {
+  if (starred.some(x => x.id === job.id) || jobMeta.has(job.id)) return pipelineFor(job);
+  try {
+    jobMeta.set(job.id, await jenkins.getJobMeta(job.url, config));
+    ui.errors.delete(job.id);
+  } catch (err) {
+    ui.errors.set(job.id, err.message);
+    return null;
+  }
+  return pipelineFor(job);
+}
+
+async function toggleResult(job) {
+  if (ui.openResult === job.id) {
+    ui.openResult = null;
+    renderResults();
+    return;
+  }
+  ui.openResult = job.id;
+  renderResults();                 // show the panel straight away
+  if (await loadMeta(job)) renderResults();
+  else renderResults();            // surfaces the error in the panel
+}
+
+async function runJob(job) {
+  const p = await loadMeta(job);
+  if (!p) { renderResults(); return; }
+  triggerPipeline(p);
+}
+
 function highlightResults() {
-  [...$('#results').children].forEach((n, i) => n.classList.toggle('active', i === ui.activeResult));
+  [...$('#results').children].forEach((card, i) =>
+    card.querySelector('.result')?.classList.toggle('active', i === ui.activeResult));
 }
 
 function onSearchKey(ev) {
@@ -271,23 +354,10 @@ function onSearchKey(ev) {
   if (ev.key === 'Enter') {
     ev.preventDefault();
     const job = matches(ui.query)[ui.activeResult];
-    if (job) activateResult(job);
+    // Enter runs the highlighted result, starred or not. Shift+Enter opens its
+    // parameters instead, for when the saved values need a look first.
+    if (job) ev.shiftKey ? toggleResult(job) : runJob(job);
   }
-}
-
-// Enter on a starred pipeline runs it. On an unstarred one it stars and opens it,
-// so a stray keypress never fires a build the user has not seen the parameters for.
-async function activateResult(job) {
-  const existing = starred.find(p => p.id === job.id);
-  if (existing) {
-    clearQuery();
-    triggerPipeline(existing);
-    return;
-  }
-  await toggleStar(job);
-  ui.openId = job.id;
-  clearQuery();
-  renderStarred();
 }
 
 async function toggleStar(job) {
@@ -371,10 +441,21 @@ function runCard(run) {
         el('span', { class: 'run-name', textContent: run.name }),
         run.build ? el('span', { class: 'run-build', textContent: `#${run.build}` }) : null
       ]),
-      el('div', { class: 'run-meta', textContent: runMeta(run) })
+      el('div', { class: 'run-meta', textContent: runMeta(run) }),
+      paramsLine(run)
     ]),
     ...buttons
   ]);
+}
+
+// Checkboxes are stored as real booleans, so their type is enough to leave them
+// out; a row full of FLAG=false says nothing about what this build was.
+function paramsLine(run) {
+  const shown = Object.entries(run.params || {})
+    .filter(([, v]) => typeof v !== 'boolean' && String(v).trim() !== '')
+    .map(([k, v]) => `${k}=${v}`)
+    .join(', ');
+  return shown ? el('div', { class: 'run-params', textContent: shown, title: shown }) : null;
 }
 
 function runMeta(run) {
@@ -512,7 +593,7 @@ function summaryFor(p) {
   return head + (parts.length > 2 ? `  +${parts.length - 2}` : '');
 }
 
-function paramPanel(p) {
+function paramPanel(p, isStarred = true) {
   const panel = el('div', { class: 'panel' });
   const values = { ...valuesFor(p) };
   ui.drafts.set(p.id, values);
@@ -537,12 +618,16 @@ function paramPanel(p) {
     textContent: 'Sync params',
     onclick: e => syncParams(p, e.currentTarget)
   });
-  const unstar = el('button', {
-    class: 'unstar-btn', title: 'Unstar',
-    onclick: () => toggleStar({ id: p.id, url: p.url, name: p.name, fullName: p.fullName })
-  }, icon('star', { size: 13, fill: true }));
+  const starToggle = el('button', {
+    class: `unstar-btn${isStarred ? '' : ' off'}`,
+    title: isStarred ? 'Unstar' : 'Star',
+    onclick: () => toggleStar({
+      id: p.id, url: p.url, name: p.name,
+      fullName: p.fullName, lastBuildAt: p.lastRunAt
+    })
+  }, icon('star', { size: 13, fill: isStarred }));
 
-  panel.append(el('div', { class: 'panel-actions' }, [trigger, sync, unstar]));
+  panel.append(el('div', { class: 'panel-actions' }, [trigger, sync, starToggle]));
 
   const err = ui.errors.get(p.id);
   if (err) panel.append(el('div', { class: 'field-error', textContent: err }));
@@ -622,29 +707,43 @@ function stripSecrets(defs, values) {
 
 async function triggerPipeline(p) {
   if (ui.busy.has(p.id)) return;
+  const fromSearch = Boolean(ui.query.trim());
   ui.busy.add(p.id);
   ui.errors.delete(p.id);
-  renderStarred();
+  fromSearch ? renderResults() : renderStarred();
 
   const params = valuesFor(p);
   const persist = stripSecrets(p.params, params);
 
   const res = await chrome.runtime.sendMessage({
-    type: 'trigger', pipelineId: p.id, params, persist
+    type: 'trigger',
+    pipelineId: p.id,
+    params,
+    persist,
+    // Sent so the worker can run a pipeline that was never starred.
+    job: { id: p.id, url: p.url, name: p.name }
   }).catch(err => ({ ok: false, error: err.message }));
 
   ui.busy.delete(p.id);
 
   if (!res?.ok) {
     ui.errors.set(p.id, res?.error || 'Trigger failed.');
-    ui.openId = p.id;
-  } else {
-    paramValues[p.id] = persist;
-    ui.openId = null;
-    ui.drafts.delete(p.id);
-    starred = await store.getStarred();
+    if (fromSearch) ui.openResult = p.id; else ui.openId = p.id;
+    runs = await store.getRuns();
+    renderAll();
+    return;
   }
+
+  paramValues[p.id] = persist;
+  ui.openId = null;
+  ui.openResult = null;
+  ui.drafts.delete(p.id);
+  starred = await store.getStarred();
   runs = await store.getRuns();
+
+  // Drop back to browse so the new run is actually visible; left in search mode
+  // the activity list it lands in is hidden.
+  if (fromSearch) clearQuery();
   renderAll();
 }
 

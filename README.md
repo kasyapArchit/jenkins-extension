@@ -21,20 +21,30 @@ only declares `optional_host_permissions` instead of a blanket origin.
 ## Using it
 
 **Search** any non-empty query switches the popup into search mode and filters the whole
-controller's job list. Star a result to pin it, or press Enter to run it. The job index
-comes from one recursive `/api/json?tree=jobs[...]` call and is cached in
-`chrome.storage.session`, so typing is instant after the first load. Arrow keys move the
-selection, Enter runs a starred pipeline (or stars and opens an unstarred one, so a stray
-keypress never fires a build you have not seen the parameters for), Escape clears.
+controller's job list. The job index comes from one recursive `/api/json?tree=jobs[...]`
+call and is cached in `chrome.storage.session`, so typing is instant after the first load.
+
+Results can be run without starring. Every row has a Run button that triggers with the
+saved values, or the job's own Jenkins defaults the first time. Clicking the row instead
+expands the parameter form, fetched on demand, so values can be changed before triggering.
+Arrow keys move the selection, Enter runs the highlighted result, Shift+Enter opens its
+parameters, Escape clears. A successful trigger from search clears the query and drops back
+to browse, because that is where the new run is visible.
+
+Starring is a separate act: the star in the row, or the star button in the expanded panel.
+Running a pipeline from search never stars it.
 
 **Run** on a starred card fires immediately with the values from the last run, falling
 back to the job's defaults the first time. This is the one-click path. Clicking the card
 body opens the parameter form when you need to change something first. Drag the grip to
 reorder.
 
-**Activity** shows everything triggered from the extension. Running builds tick every
-second, can be aborted via `POST <build>/stop`, and every row can copy its build URL.
-Finished rows are dismissed one at a time.
+**Activity** shows everything triggered from the extension, with the build number and the
+parameters each build ran with. Booleans are left out of that line: they are stored as real
+booleans, so their type is enough to filter them, and a row of `FLAG=false` says nothing
+about what the build was. Running builds tick every second, can be aborted via
+`POST <build>/stop`, and every row can copy its build URL. Finished rows are dismissed one
+at a time.
 
 **Add by URL** at the bottom takes any Jenkins URL containing the job (build page, console,
 job page) and trims it down to the job path.

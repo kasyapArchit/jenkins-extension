@@ -26,7 +26,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
 
 async function handle(msg) {
   switch (msg.type) {
-    case 'trigger':     return trigger(msg.pipelineId, msg.params, msg.persist);
+    case 'trigger':     return trigger(msg.pipelineId, msg.params, msg.persist, msg.job);
     case 'diagnose':    return diagnose();
     case 'poll':        return pollAll();
     case 'ensureAlarm': return ensureAlarm();
@@ -57,17 +57,20 @@ async function diagnose() {
   return out;
 }
 
-async function trigger(pipelineId, params, persist) {
+// `job` lets search trigger a pipeline that was never starred. Starred entries
+// still win, so a starred pipeline keeps its own name and saved values.
+async function trigger(pipelineId, params, persist, job) {
   const config = await store.getConfig();
-  const pipeline = (await store.getStarred()).find(p => p.id === pipelineId);
-  if (!pipeline) throw new Error('That pipeline is no longer starred.');
+  const entry = (await store.getStarred()).find(p => p.id === pipelineId);
+  const pipeline = entry || job;
+  if (!pipeline?.url) throw new Error('That pipeline is no longer available.');
 
   const queueUrl = await jenkins.triggerBuild(pipeline.url, params, config);
 
-  await Promise.all([
-    store.setParamValues(pipelineId, persist ?? params),
-    store.star({ id: pipelineId, lastRunAt: Date.now() })
-  ]);
+  await store.setParamValues(pipelineId, persist ?? params);
+  // Guard the star write: store.star upserts, so calling it unconditionally
+  // would silently star every pipeline run from search.
+  if (entry) await store.star({ id: pipelineId, lastRunAt: Date.now() });
 
   const run = await store.addRun({
     id: `${pipelineId}::${Date.now()}`,

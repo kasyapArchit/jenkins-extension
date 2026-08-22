@@ -41,14 +41,19 @@ globalThis.chrome = {
     async sendMessage(msg) {
       if (msg.type === 'trigger') {
         const runs = areas.local.runs || [];
-        const p = (areas.sync.starred || []).find(x => x.id === msg.pipelineId);
+        // Mirrors the worker: starred entry wins, otherwise the job the popup sent.
+        const p = (areas.sync.starred || []).find(x => x.id === msg.pipelineId) || msg.job;
         runs.unshift({
           id: `${msg.pipelineId}::${Date.now()}`, jobId: msg.pipelineId, name: p.name,
           url: `${p.url}/${++BUILD}`, build: BUILD, status: 'RUNNING',
+          params: msg.persist ?? msg.params,
           startedAt: Date.now(), finishedAt: null
         });
         await chrome.storage.local.set({ runs });
         return { ok: true };
+      }
+      if (msg.type === 'diagnose') {
+        return { ok: true, data: { ok: true, who: 'Archit Kashyap', clientBuild: '2', hasToken: true } };
       }
       return { ok: true };
     }
@@ -90,6 +95,11 @@ const PARAMS = {
     { name: 'SKIP_TESTS', type: 'BooleanParameterDefinition', default: false },
     { name: 'TARGET', type: 'ChoiceParameterDefinition', default: 'prod-eu', description: 'Cluster',
       choices: ['prod-eu', 'prod-us', 'prod-in'] }
+  ],
+  'Neo-QA': [
+    { name: 'BRANCH', type: 'StringParameterDefinition', default: 'develop', description: 'Branch to build' },
+    { name: 'SKIP_SNAPSHOTS', type: 'BooleanParameterDefinition', default: false },
+    { name: 'REGION', type: 'ChoiceParameterDefinition', default: 'eu', description: 'Region', choices: ['eu','us','in'] }
   ],
   'Storybook-Deploy': [
     { name: 'BRANCH', type: 'StringParameterDefinition', default: 'develop', description: 'Branch to publish' },
@@ -161,8 +171,10 @@ areas.sync.paramValues = EMPTY ? {} : {
 };
 areas.local.runs = EMPTY ? [] : [
   { id: 'r1', jobId: starred[0].id, name: 'QA', build: 527, url: starred[0].url + '/527',
+    params: { CLEAN_INSTALL: true, DELETE_YARN_CACHE_DIR: false, BRANCH: 'develop', BUILD_CMD: 'qaStaging' },
     status: 'RUNNING', startedAt: Date.now() - 119000, buildStartedAt: Date.now() - 119000 },
   { id: 'r2', jobId: starred[0].id, name: 'QA', build: 525, url: starred[0].url + '/525',
+    params: { CLEAN_INSTALL: false, BRANCH: 'release/9.2', BUILD_CMD: 'qaProd' },
     status: 'SUCCESS', startedAt: Date.now() - 1080000, finishedAt: Date.now() - 1020000 },
   { id: 'r3', jobId: starred[1].id, name: 'web-prod-deploy', build: 88, url: starred[1].url + '/88',
     status: 'FAILURE', startedAt: Date.now() - 7500000, finishedAt: Date.now() - 7200000 }
