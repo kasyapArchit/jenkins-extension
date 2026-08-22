@@ -46,7 +46,9 @@ reorder.
 **Activity** shows everything triggered from the extension. Each card is two lines: name,
 build number and elapsed time on the first, the values the build ran with on the second.
 Names are folder-qualified, because several folders having a job called `QA` is normal and
-the bare name says nothing about which one ran. The eye button opens the build in a new tab.
+the bare name says nothing about which one ran. The eye button opens the build in a new tab,
+and on a finished card the circular arrow beside it runs the pipeline again with exactly the
+values that build used.
 
 Where the build number sits, a version appears instead once the pipeline sets one. Every
 poll re-reads the build's `displayName`, which is what `currentBuild.displayName = "9.2.1"`
@@ -67,9 +69,14 @@ Values only, not `KEY=value`: a branch name or a build command identifies itself
 key doubles the length of a line that has to fit in 400px. The keys are in the tooltip. Booleans are left out entirely, since they are stored as real
 booleans so the type is enough to filter on, and a row of `false` says nothing about what
 the build was. The starred cards still show `KEY=value`, because there you are about to
-edit the values rather than read them back. Running builds tick every second, can be aborted via
-`POST <build>/stop`, and every row can copy its build URL. Finished rows are dismissed one
-at a time.
+edit the values rather than read them back. Running builds tick every second and can be
+aborted via `POST <build>/stop`. Finished rows are dismissed one at a time.
+
+Re-running reads the values off the run record, not the pipeline's saved ones, so it
+reproduces what that build actually used even if the saved values have been edited since.
+It does not write them back either: a replay of an old build should not quietly become the
+new default. Password parameters are the gap, since they are stripped before a run is
+recorded; a replay omits them and Jenkins uses its own defaults.
 
 **Add by URL** at the bottom takes any Jenkins URL containing the job (build page, console,
 job page) and trims it down to the job path.
@@ -207,6 +214,8 @@ picks the right endpoint and returns the queue URL.
 - Credentials and Run parameter types render as plain text inputs.
 - Search indexes to `searchDepth` folder levels (default 3). Deeper jobs are invisible to
   search but can still be added by URL.
+- Re-running a finished run leaves out its password parameters. They are stripped before a
+  run is recorded, so there is nothing to replay and Jenkins falls back to its own defaults.
 - Untested against a live Jenkins controller.
 
 ## Roadmap
@@ -247,11 +256,12 @@ asked for.
       folder trails, so the eye scans job names down the column. `qualifiedName()` in
       `lib/format.js`; the full path is in the tooltip.
 
-- [ ] **Re-run a finished run with the same parameters.** An icon button on finished run
-      cards, sitting with the eye and dismiss buttons, that triggers the same pipeline with
-      exactly the values that run used. The values are already on the record, so this reads
-      them from the run rather than from the pipeline's current saved values, which may have
-      moved on since.
+- [x] **Re-run a finished run with the same parameters.** The circular-arrow button on a
+      finished run card, between the eye and dismiss buttons. It reads the values off the run
+      record rather than the pipeline's saved ones, so it reproduces what that build actually
+      used even if the saved values have been edited since, and for the same reason it does
+      not write them back as the new saved values. `rerun()` in `popup.js`, carried to the
+      worker as `remember: false` on the trigger message.
 
 ## VPN
 

@@ -28,7 +28,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
 
 async function handle(msg) {
   switch (msg.type) {
-    case 'trigger':     return trigger(msg.pipelineId, msg.params, msg.persist, msg.job);
+    case 'trigger':     return trigger(msg.pipelineId, msg.params, msg.persist, msg.job,
+                                       msg.remember !== false);
     case 'diagnose':    return diagnose();
     case 'ping':        return { build: BUILD };
     case 'poll':        return pollAll();
@@ -62,7 +63,10 @@ async function diagnose() {
 
 // `job` lets search trigger a pipeline that was never starred. Starred entries
 // still win, so a starred pipeline keeps its own name and saved values.
-async function trigger(pipelineId, params, persist, job) {
+// remember=false is a replay of an old run: it triggers with that run's values
+// without adopting them as the pipeline's saved ones, which have probably moved
+// on since.
+async function trigger(pipelineId, params, persist, job, remember = true) {
   const config = await store.getConfig();
   const entry = (await store.getStarred()).find(p => p.id === pipelineId);
   const pipeline = entry || job;
@@ -70,7 +74,7 @@ async function trigger(pipelineId, params, persist, job) {
 
   const queueUrl = await jenkins.triggerBuild(pipeline.url, params, config);
 
-  await store.setParamValues(pipelineId, persist ?? params);
+  if (remember) await store.setParamValues(pipelineId, persist ?? params);
   // Guard the star write: store.star upserts, so calling it unconditionally
   // would silently star every pipeline run from search.
   if (entry) await store.star({ id: pipelineId, lastRunAt: Date.now() });

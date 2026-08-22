@@ -460,6 +460,13 @@ function runCard(run) {
       onclick: () => chrome.tabs.create({ url: run.url })
     }, icon('eye', { size: 13 })));
   }
+  if (!active && run.jobUrl) {
+    buttons.push(el('button', {
+      class: 'run-icon-btn', title: 'Run again with these same parameters',
+      disabled: ui.busy.has(run.id),
+      onclick: () => rerun(run)
+    }, icon('rotate-cw', { size: 13 })));
+  }
   if (!active) {
     buttons.push(el('button', {
       class: 'run-icon-btn', title: 'Dismiss',
@@ -485,9 +492,13 @@ function runCard(run) {
           : null,
         el('span', { class: 'run-time', textContent: runTime(run) })
       ]),
-      run.status === 'ERROR'
-        ? el('div', { class: 'run-error', textContent: run.error || 'Failed to start' })
-        : paramsLine(run)
+      // A failed re-run has no parameter panel to report into, so it reports on
+      // the card it was launched from.
+      ui.errors.has(run.id)
+        ? el('div', { class: 'run-error', textContent: ui.errors.get(run.id) })
+        : run.status === 'ERROR'
+          ? el('div', { class: 'run-error', textContent: run.error || 'Failed to start' })
+          : paramsLine(run)
     ]),
     ...buttons
   ]);
@@ -765,6 +776,37 @@ function stripSecrets(defs, values) {
   const out = { ...values };
   for (const d of defs || []) if (d.type === 'PasswordParameterDefinition') delete out[d.name];
   return out;
+}
+
+// Replays a finished run. The values come off the run record rather than the
+// pipeline's saved ones, so this reproduces what that build actually used even
+// if the saved values have been edited since. For the same reason it does not
+// write them back as the new saved values.
+//
+// Secrets are the one gap: password parameters are stripped before a run is
+// recorded, so a replay leaves them out and Jenkins falls back to its defaults.
+async function rerun(run) {
+  if (ui.busy.has(run.id)) return;
+  ui.busy.add(run.id);
+  ui.errors.delete(run.id);
+  renderActivity();
+
+  const res = await chrome.runtime.sendMessage({
+    type: 'trigger',
+    pipelineId: run.jobId,
+    params: run.params || {},
+    remember: false,
+    // Sent so a run whose pipeline was never starred, or has since been
+    // unstarred, can still be replayed.
+    job: { id: run.jobId, url: run.jobUrl, name: run.name, fullName: run.fullName }
+  }).catch(err => ({ ok: false, error: err.message }));
+
+  ui.busy.delete(run.id);
+  if (!res?.ok) ui.errors.set(run.id, res?.error || 'Could not start it again.');
+
+  runs = await store.getRuns();
+  renderActivity();
+  renderFooter();
 }
 
 async function triggerPipeline(p) {
