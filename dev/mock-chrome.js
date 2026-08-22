@@ -152,11 +152,14 @@ areas.sync.config = {
   pollSeconds: 30, notify: true, searchDepth: 3
 };
 areas.local.token = 'mock';
-areas.sync.starred = starred;
-areas.sync.paramValues = {
+// ?empty exercises the fresh-profile state: nothing starred, nothing triggered.
+const EMPTY = new URLSearchParams(location.search).has('empty');
+
+areas.sync.starred = EMPTY ? [] : starred;
+areas.sync.paramValues = EMPTY ? {} : {
   [starred[0].id]: { CLEAN_INSTALL: false, DELETE_YARN_CACHE_DIR: false, BRANCH: 'develop', BUILD_CMD: 'qaStaging' }
 };
-areas.local.runs = [
+areas.local.runs = EMPTY ? [] : [
   { id: 'r1', jobId: starred[0].id, name: 'QA', build: 527, url: starred[0].url + '/527',
     status: 'RUNNING', startedAt: Date.now() - 119000, buildStartedAt: Date.now() - 119000 },
   { id: 'r2', jobId: starred[0].id, name: 'QA', build: 525, url: starred[0].url + '/525',

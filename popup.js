@@ -312,6 +312,7 @@ async function toggleStar(job) {
   }
   renderResults();
   renderStarred();
+  renderActivity();
   renderFooter();
 }
 
@@ -319,6 +320,12 @@ async function toggleStar(job) {
 
 function renderActivity() {
   const host = clear($('#activity'));
+
+  // With nothing starred there is nothing that could have been triggered, so the
+  // empty box would just stack a second empty state above the starred one.
+  host.hidden = !runs.length && !starred.length;
+  if (host.hidden) return;
+
   if (!runs.length) {
     host.append(el('div', { class: 'empty-box', textContent: 'Nothing triggered from here yet.' }));
     return;
@@ -705,6 +712,7 @@ async function onStorageChanged(changes, area) {
   if (area === 'sync' && changes.starred) {
     starred = changes.starred.newValue || [];
     renderStarred();
+    renderActivity();
     renderFooter();
   }
   if (area === 'sync' && changes.paramValues) {
