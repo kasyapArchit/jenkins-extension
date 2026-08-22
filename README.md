@@ -332,8 +332,9 @@ lib/build.js       the staleness stamp
 ```
 
 Icons are inlined Lucide path data, so the extension ships no icon font and makes no network
-request for chrome. Design tokens in `popup.css` are copied verbatim from the design handoff
-in `design_handoff_jenkins_launcher/`.
+request for chrome. The design tokens at the top of `popup.css` came verbatim from the
+original design handoff, which is no longer in the tree; `popup.css` is the record of them
+now.
 
 ---
 

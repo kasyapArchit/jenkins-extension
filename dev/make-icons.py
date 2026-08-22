@@ -3,9 +3,9 @@
 
     python3 dev/make-icons.py
 
-Geometry is measured from the source artwork in design_handoff_jenkins_launcher:
+Geometry was measured from the original artwork, which is no longer in the tree:
 a rounded square, a green disc, and a play triangle knocked out of the disc in
-the square's own colour. The dark variant's square matches a dark toolbar and
+the square's own colour. The constants below are the record of it. The dark variant's square matches a dark toolbar and
 the light variant's matches a light one, so in both themes the square recedes
 and the green disc is what you actually see.
 """
