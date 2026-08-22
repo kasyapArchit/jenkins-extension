@@ -164,7 +164,7 @@
       <div class="field">
         <label for="denyPatterns">Never trigger pipelines matching these patterns</label>
         <textarea id="denyPatterns" class="mono" rows="4"
-                  spellcheck="false" placeholder="empty — nothing is blocked by pattern"></textarea>
+                  spellcheck="false" placeholder="prod&#10;^Release/"></textarea>
         <div class="hint">
           One regular expression per line, matched against the pipeline's full path such as
           <code>Frontend/web-prod-deploy</code>, ignoring case and anywhere in the path.
