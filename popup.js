@@ -27,6 +27,7 @@ const ui = {
   connection: 'checking',     // checking | online | offline | unauthorized
   worker: 'ok',               // ok | stale | silent
   activeResult: 0,
+  justOpened: null,       // the one card whose panel should animate on this render
   dragId: null,
   drafts: new Map(),          // pipelineId -> { KEY: value } being edited
   busy: new Set(),            // pipeline ids mid-trigger
@@ -300,15 +301,22 @@ function renderResults() {
       runBtn
     ]);
 
-    const card = el('div', { class: `result-card${open ? ' open' : ''}` }, row);
+    const opening = open && ui.justOpened === job.id;
+    const card = el('div', {
+      class: `result-card${open && !opening ? ' open' : ''}`,
+      dataset: { id: job.id }
+    }, row);
 
     if (open) {
       const p = pipelineFor(job);
-      card.append(p
+      const panel = p
         ? paramPanel(p, on)
         : el('div', { class: 'panel' }, el('div', {
             class: 'pdesc', textContent: ui.errors.get(job.id) || 'Reading parameters…'
-          })));
+          }));
+      const slide = el('div', { class: `panel-wrap${opening ? '' : ' open'}` }, panel);
+      card.append(slide);
+      if (opening) reveal(card, slide);
     }
     wrap.append(card);
   });
@@ -348,13 +356,16 @@ async function loadMeta(job) {
 async function toggleResult(job) {
   if (ui.openResult === job.id) {
     ui.openResult = null;
-    renderResults();
+    collapse($(`#results .result-card[data-id="${CSS.escape(job.id)}"]`), renderResults);
     return;
   }
   ui.openResult = job.id;
+  ui.justOpened = job.id;
+  const known = Boolean(pipelineFor(job));
   renderResults();                 // show the panel straight away
-  if (await loadMeta(job)) renderResults();
-  else renderResults();            // surfaces the error in the panel
+  if (known) return;               // nothing to fetch, so nothing to re-render
+  await loadMeta(job);
+  renderResults();                 // swaps in the form, or surfaces the error
 }
 
 async function runJob(job) {
@@ -581,8 +592,11 @@ function renderStarred() {
 
 function pipelineCard(p) {
   const open = ui.openId === p.id;
+  // Only the render that follows the click animates. Every other render while
+  // the card is open, a poll landing for instance, rebuilds it already expanded.
+  const opening = open && ui.justOpened === p.id;
   const card = el('div', {
-    class: `card${open ? ' open' : ''}`,
+    class: `card${open && !opening ? ' open' : ''}`,
     dataset: { id: p.id }
   });
 
@@ -617,7 +631,11 @@ function pipelineCard(p) {
     }, icon('grip', { size: 14 })),
     el('div', {
       class: 'card-main',
-      onclick: () => { ui.openId = open ? null : p.id; renderStarred(); }
+      onclick: () => {
+        if (!open) { ui.openId = p.id; ui.justOpened = p.id; renderStarred(); return; }
+        ui.openId = null;
+        collapse(card, renderStarred);
+      }
     }, [
       el('div', { class: 'card-title' }, [
         el('span', {
@@ -625,14 +643,19 @@ function pipelineCard(p) {
           textContent: qualifiedName(p.fullName, p.name),
           title: p.fullName || p.name
         }),
-        el('span', { class: 'caret' }, icon(open ? 'chevron-down' : 'chevron-right', { size: 12 }))
+        // One chevron rotated by CSS rather than two swapped: a swap cannot animate.
+        el('span', { class: 'caret' }, icon('chevron-right', { size: 12 }))
       ]),
       el('div', { class: 'card-summary', textContent: summaryFor(p) })
     ]),
     runBtn
   ]));
 
-  if (open) card.append(paramPanel(p));
+  if (open) {
+    const wrap = el('div', { class: `panel-wrap${opening ? '' : ' open'}` }, paramPanel(p));
+    card.append(wrap);
+    if (opening) reveal(card, wrap);
+  }
   return card;
 }
 
@@ -668,6 +691,40 @@ function summaryFor(p) {
     .map(d => `${d.name}=${vals[d.name]}`);
   const head = parts.slice(0, 2).join(', ');
   return head + (parts.length > 2 ? `  +${parts.length - 2}` : '');
+}
+
+/* ---------- expanding panels ---------- */
+
+// Matches --motion in popup.css. Only used to know when a collapsed panel can be
+// removed from the DOM, so it errs on the side of the CSS finishing first.
+const MOTION_MS = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 190;
+
+// Two frames, not one. The first lets the collapsed state land in layout; the
+// second transitions away from it. With a single frame the browser is free to
+// coalesce both styles and the panel simply appears.
+//
+// The flag is cleared here rather than at render time because a render can be
+// thrown away before its reveal ever runs, which is exactly what happens when a
+// result's parameter definitions arrive a tick after the panel is opened. Left
+// set, the render that replaces it animates instead.
+function reveal(card, wrap) {
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    if (!wrap.isConnected) return;
+    ui.justOpened = null;
+    card.classList.add('open');
+    wrap.classList.add('open');
+  }));
+}
+
+// The card outlives its own collapse: the state is already closed, but the panel
+// stays in the DOM until the height animation has run, then the caller re-renders
+// over it. A re-render arriving mid-animation cuts it short rather than breaking.
+function collapse(card, done) {
+  const wrap = card?.querySelector('.panel-wrap');
+  card?.classList.remove('open');
+  if (!wrap) { done(); return; }
+  wrap.classList.remove('open');
+  setTimeout(done, MOTION_MS);
 }
 
 function paramPanel(p, isStarred = true) {

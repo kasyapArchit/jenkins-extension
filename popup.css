@@ -8,6 +8,11 @@
 
   --ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Kept next to MOTION_MS in popup.js, which waits this long before removing a
+     collapsed panel. Change one and change the other. */
+  --motion: 190ms;
+  --ease: cubic-bezier(.32, .72, 0, 1);
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -33,6 +38,10 @@ svg { flex: none; display: block; }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 @keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  :root { --motion: 1ms; }
+  * { animation-duration: 1ms !important; animation-iteration-count: 1 !important; }
+}
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 
 .shell { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
@@ -183,7 +192,11 @@ a:hover { text-decoration: underline; }
   font-size: 13.5px; font-weight: 650; letter-spacing: -.01em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.caret { color: var(--faint); flex: none; display: flex; }
+.caret {
+  color: var(--faint); flex: none; display: flex;
+  transition: transform var(--motion) var(--ease);
+}
+.card.open .caret { transform: rotate(90deg); }
 .card-summary {
   font-size: 11px; color: var(--dim); font-family: var(--mono); margin-top: 2px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -194,6 +207,25 @@ a:hover { text-decoration: underline; }
 }
 .run-btn:hover { filter: brightness(1.08); }
 .run-btn:disabled { opacity: .6; cursor: default; }
+
+/* A grid row animated between 0fr and 1fr. Unlike max-height this needs no
+   guess at the panel's height, so a two-field pipeline and a ten-field one both
+   take the same time and neither is clipped. */
+/* minmax(0, …) rather than a bare 0fr: an fr track keeps an automatic minimum,
+   and the panel's own padding held the collapsed state open at 23px. */
+.panel-wrap {
+  display: grid; grid-template-rows: minmax(0, 0fr);
+  transition: grid-template-rows var(--motion) var(--ease);
+}
+.panel-wrap.open { grid-template-rows: minmax(0, 1fr); }
+.panel-wrap > * { min-height: 0; overflow: hidden; }
+/* The contents follow the height rather than being revealed by it, which reads
+   as the panel arriving rather than the card being stretched. */
+.panel-wrap > .panel {
+  opacity: 0; transform: translateY(-4px);
+  transition: opacity var(--motion) var(--ease), transform var(--motion) var(--ease);
+}
+.panel-wrap.open > .panel { opacity: 1; transform: none; }
 
 .panel {
   border-top: 1px solid var(--line-soft); padding: 10px 12px 12px;

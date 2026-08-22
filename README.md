@@ -78,6 +78,15 @@ It does not write them back either: a replay of an old build should not quietly 
 new default. Password parameters are the gap, since they are stripped before a run is
 recorded; a replay omits them and Jenkins uses its own defaults.
 
+Parameter panels slide open and shut. The wrapper is a grid whose single row animates
+between `minmax(0, 0fr)` and `minmax(0, 1fr)`, so no height has to be measured and a
+two-field pipeline and a ten-field one take the same 190ms. Only the render that follows a
+click animates, tracked by `ui.justOpened`; a background poll re-rendering an open card
+rebuilds it already expanded rather than replaying the animation. The flag is cleared when
+the reveal runs rather than when the card renders, because a render can be discarded before
+its animation ever starts, which is what happens when a search result's parameters arrive a
+tick after the panel opens. Reduced-motion preferences cut the duration to 1ms.
+
 **Add by URL** at the bottom takes any Jenkins URL containing the job (build page, console,
 job page) and trims it down to the job path.
 
