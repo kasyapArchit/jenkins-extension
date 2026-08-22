@@ -195,37 +195,45 @@ picks the right endpoint and returns the queue URL.
 
 ## Roadmap
 
-Not implemented. Listed in the order they were asked for.
+Checked items are already implemented; the rest are not started. In the order they were
+asked for.
 
-1. **A toggle that blocks triggering.** With it on, Run and Trigger build open the pipeline
-   in a new tab instead of starting a build, so a release pipeline cannot go off by accident
-   from the popup.
+- [ ] **A toggle that blocks triggering.** With it on, Run and Trigger build open the
+      pipeline in a new tab instead of starting a build, so a release pipeline cannot go off
+      by accident from the popup.
 
-2. **Regex deny-list for triggering.** Building on the toggle: any pipeline whose name or
-   full path matches one of several configured patterns cannot be triggered from the
-   extension. Multiple patterns allowed.
+- [ ] **Regex deny-list for triggering.** Building on the toggle: any pipeline whose name or
+      full path matches one of several configured patterns cannot be triggered from the
+      extension. Multiple patterns allowed.
 
-3. **Track a version number that changes mid-run.** Some pipelines set their version during
-   the build, so the poller should re-read it and update the run when it changes, rather
-   than keeping whatever was known at trigger time.
+- [ ] **Track a version number that changes mid-run.** Some pipelines set their version
+      during the build, so the poller should re-read it and update the run when it changes,
+      rather than keeping whatever was known at trigger time.
 
-4. **Icon in the notification.** Already done: `announce()` passes
-   `iconUrl: 'icons/128-mark.png'`. Worth confirming it renders on your OS.
+- [x] **Icon in the notification.** `announce()` passes `iconUrl: 'icons/128-mark.png'`.
 
-5. **Notify on failure.** Already done: a notification fires on every completion, and
-   non-SUCCESS results are sent at `priority: 2`. One real gap remains, though. A build that
-   fails to *start* is marked `ERROR` in `pollAll()` without calling `announce()`, so those
-   are silent.
+- [x] **Notify on failure.** A notification fires on every completion, and non-SUCCESS
+      results go out at `priority: 2`.
 
-6. **Clicking the notification opens the run.** Already done, in the
-   `chrome.notifications.onClicked` listener.
+- [ ] **Notify when a build fails to start.** The gap left by the item above: `pollAll()`
+      marks these `ERROR` without calling `announce()`, so a build that never begins is
+      silent.
 
-7. **An eye button next to copy.** Opens the build in a new tab directly, saving the
-   copy-then-paste round trip.
+- [x] **Clicking the notification opens the run.** Handled in the
+      `chrome.notifications.onClicked` listener.
 
-8. **Show the first parent folder in the pipeline name.** `Webmail/QA` rather than bare
-   `QA`, since several folders each have a job called QA and the run cards are currently
-   ambiguous about which one ran.
+- [ ] **An eye button next to copy.** Opens the build in a new tab directly, saving the
+      copy-then-paste round trip.
+
+- [ ] **Show the first parent folder in the pipeline name.** `Webmail/QA` rather than bare
+      `QA`, since several folders each have a job called QA and the run cards are currently
+      ambiguous about which one ran.
+
+- [ ] **Re-run a finished run with the same parameters.** An icon button on finished run
+      cards, sitting with copy and dismiss, that triggers the same pipeline again with
+      exactly the values that run used. The values are already on the record, so this reads
+      them from the run rather than from the pipeline's current saved values, which may have
+      moved on since.
 
 ## VPN
 
