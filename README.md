@@ -293,6 +293,22 @@ exists, missing credentials throw before any request goes out, cookie mode sends
 header, `probe()` maps every failure to one of the three header states, and `triggerBuild`
 picks the right endpoint and returns the queue URL.
 
+## Settings
+
+The connection has a Save button because saving it also asks Chrome for permission to reach
+the controller, and Chrome only grants that from a click. Everything else is a preference
+and writes as you change it, with the confirmation next to the control rather than at the
+top of the page.
+
+That split exists because the single Save button sat under the connection fields, and a
+setting three sections further down looked like it had saved itself. It had not. Anything
+that appears to save on change now does.
+
+A refused write is reported rather than swallowed: `chrome.storage.sync` has its own quotas,
+and a rejection used to end up in an unhandled promise while the page said Saved. A deny
+pattern that will not compile is not written at all, since storing a rule the guard skips
+reads as blocking being broken rather than that line being wrong.
+
 ## Known gaps
 
 - File parameters are not supported. `buildWithParameters` needs multipart for those.
@@ -305,9 +321,6 @@ picks the right endpoint and returns the queue URL.
 - Subscription notifications need Chrome running and the controller reachable. There is no
   push from Jenkins, only the 30-second alarm poll, which is Chrome's floor.
 - Untested against a live Jenkins controller.
-- `chrome.storage.sync` allows about 100 KB in total. Starred pipelines carry their whole
-  parameter definitions, so a large enough set can reach it, and Chrome then rejects every
-  later write. Settings shows the usage and reports a refused save rather than claiming one.
 
 ## Roadmap
 

@@ -20,13 +20,26 @@ for (const [key, id] of Object.entries(NOTIFY_ON)) $(id).checked = Boolean(saved
 toggleTokenFields();
 checkPatterns();
 lockLastNotifyKind();
-showUsage();
 
 $('authMode').addEventListener('change', toggleTokenFields);
 $('save').addEventListener('click', save);
 $('test').addEventListener('click', test);
-$('denyPatterns').addEventListener('input', checkPatterns);
 $('denyTest').addEventListener('input', checkPatterns);
+
+// Which fieldset each control reports into, so the confirmation lands beside it.
+const AUTOSAVED = {
+  tracking: ['pollSeconds', 'notify'],
+  subs: ['on-triggered', 'on-deployed', 'on-failed', 'notifyStale'],
+  search: ['searchDepth'],
+  deny: ['denyPatterns']
+};
+for (const [fieldset, ids] of Object.entries(AUTOSAVED)) {
+  for (const id of ids) {
+    $(id).addEventListener('input', () => autosave(fieldset));
+    $(id).addEventListener('change', () => autosave(fieldset));
+  }
+}
+$('denyPatterns').addEventListener('input', checkPatterns);
 for (const id of Object.values(NOTIFY_ON)) {
   $(id).addEventListener('change', lockLastNotifyKind);
 }
@@ -49,12 +62,21 @@ function status(text, kind = '') {
   $('status').className = kind;
 }
 
-function collect() {
+// Two groups, because they behave differently. The connection cannot save
+// itself: writing it also asks Chrome for host permission, which is only
+// allowed from a click. Everything else is a preference and saves as you
+// change it, which is what the page looked like it was doing anyway.
+function collectConnection() {
   return {
     baseUrl: $('baseUrl').value.trim().replace(/\/+$/, ''),
     authMode: $('authMode').value,
     userId: $('userId').value.trim(),
-    token: $('token').value,
+    token: $('token').value
+  };
+}
+
+function collectPreferences() {
+  return {
     pollSeconds: clamp(Number($('pollSeconds').value) || 30, 30, 600),
     searchDepth: clamp(Number($('searchDepth').value) || 3, 1, 6),
     notify: $('notify').checked,
@@ -64,6 +86,8 @@ function collect() {
     denyPatterns: readPatterns()
   };
 }
+
+const collect = () => ({ ...collectConnection(), ...collectPreferences() });
 
 // Blank lines are dropped rather than kept as empty patterns, which would match
 // everything and block the entire controller.
@@ -114,76 +138,67 @@ async function grant(baseUrl) {
 }
 
 async function save() {
-  const next = collect();
-  const bad = firstBadPattern(next.denyPatterns);
-  if (bad) {
-    return status(`Fix the block pattern ${bad.source} first: ${bad.message}`, 'err');
-  }
+  const next = collectConnection();
   if (next.baseUrl && !(await grant(next.baseUrl))) {
     return status('Host permission declined, so requests would be blocked.', 'err');
   }
+  try {
+    config = await store.saveConfig(next);
+  } catch (err) {
+    // A refused write used to end up in an unhandled rejection while the page
+    // still said Saved. Anything that does not persist should say why.
+    return status(`Chrome refused to store the settings: ${err.message}`, 'err');
+  }
+  await store.clearIndex();   // the host may have changed
+  status('Saved.', 'ok');
+}
+
+/* ---------- preferences, saved as they change ---------- */
+
+let pending = null;
+
+// Debounced, because the text and number fields fire on every keystroke and
+// each save is a sync write. Checkboxes come through the same path; 350ms of
+// lag on a click is not noticeable and keeps one code path.
+function autosave(fieldset) {
+  clearTimeout(pending);
+  pending = setTimeout(() => writePreferences(fieldset), 350);
+}
+
+async function writePreferences(fieldset) {
+  const next = collectPreferences();
+
+  // A pattern that will not compile is not written at all. Saving it would mean
+  // storing a rule the guard silently skips, which reads as "blocking is
+  // broken" rather than "that line is wrong".
+  const bad = firstBadPattern(next.denyPatterns);
+  if (bad) return flash(fieldset, 'Not saved while a pattern is broken.', 'err');
 
   try {
     config = await store.saveConfig(next);
   } catch (err) {
-    // chrome.storage.sync rejects on its own quotas, and it used to do so
-    // silently here: the write failed, nothing was stored, and the page still
-    // said Saved. Anything that does not persist should say why.
-    return status(`Chrome refused to store the settings: ${err.message}`, 'err');
+    return flash(fieldset, `Chrome refused to store this: ${err.message}`, 'err');
   }
 
-  // Read back rather than trusting the write. This is the check that tells a
-  // real save apart from one that looked fine and stored nothing.
-  const stored = await store.getConfig();
-  if (!sameSettings(next, stored)) {
-    return status(
-      'The settings were written but did not read back the same. Check chrome://extensions '
-      + 'for an error on Jenkins Launcher.', 'err');
-  }
-
-  $('pollSeconds').value = stored.pollSeconds;
-  $('searchDepth').value = stored.searchDepth;
-  $('denyPatterns').value = (stored.denyPatterns || []).join('\n');
-  checkPatterns();
-
-  await store.clearIndex();   // depth or host may have changed
+  await store.clearIndex();   // search depth may have changed
   await chrome.runtime.sendMessage({ type: 'ensureAlarm' }).catch(() => {});
-  status(`Saved. ${describe(stored)}`, 'ok');
-  showUsage();
+  flash(fieldset, 'Saved.', 'ok');
 }
 
-// Compares what was asked for against what came back, on the fields that are
-// easy to lose. Not deep equality: token lives elsewhere and is not re-read.
-function sameSettings(asked, got) {
-  return asked.baseUrl === got.baseUrl
-    && asked.userId === got.userId
-    && asked.notifyStale === got.notifyStale
-    && asked.denyPatterns.join('\n') === (got.denyPatterns || []).join('\n');
-}
+// Confirmation next to the thing that changed, not at the top of the page. The
+// whole bug this replaces was a Save button too far from what it saved.
+const flashTimers = new Map();
 
-const describe = c => {
-  const n = (c.denyPatterns || []).length;
-  return n ? `${n} block pattern${n > 1 ? 's' : ''} stored.` : 'No block patterns stored.';
-};
-
-// chrome.storage.sync caps at about 100 KB across everything, and a single item
-// at 8 KB. Starred pipelines carry their whole parameter definitions, so a busy
-// profile can reach it, and once it does every later write is rejected.
-async function showUsage() {
-  const out = $('storage-usage');
-  if (!out || !chrome.storage.sync.getBytesInUse) return;
-  try {
-    const used = await chrome.storage.sync.getBytesInUse(null);
-    const cap = chrome.storage.sync.QUOTA_BYTES || 102400;
-    const pct = Math.round((used / cap) * 100);
-    out.textContent = `Synced settings use ${used.toLocaleString()} of ${cap.toLocaleString()} bytes (${pct}%).`;
-    out.className = pct > 85 ? 'hint err' : 'hint';
-    if (pct > 85) {
-      out.textContent += ' Close to the limit — further saves may be refused. Unstar pipelines you no longer use.';
-    }
-  } catch {
-    out.textContent = '';
-  }
+function flash(fieldset, text, kind) {
+  const out = $(`${fieldset}-saved`);
+  if (!out) return;
+  out.textContent = text;
+  out.className = `hint ${kind}`;
+  clearTimeout(flashTimers.get(fieldset));
+  flashTimers.set(fieldset, setTimeout(() => {
+    out.textContent = 'Saves automatically.';
+    out.className = 'hint';
+  }, kind === 'ok' ? 2000 : 6000));
 }
 
 // Two checks, because they can disagree and that difference is the whole point.

@@ -12,13 +12,12 @@ const areas = stored ? JSON.parse(stored) : { sync: {}, local: {}, session: {} }
 const flush = () => sessionStorage.setItem(PERSIST, JSON.stringify(areas));
 const changeListeners = [];
 
+// ?full makes every sync write fail the way a real one does at its quota, so
+// the page can be checked for reporting the refusal instead of claiming a save.
 const FULL = new URLSearchParams(location.search).has('full');
 
 function makeArea(name) {
   return {
-    async getBytesInUse() {
-      return FULL ? 99000 : JSON.stringify(areas[name]).length;
-    },
     async get(keys) {
       const src = areas[name];
       if (keys == null) return { ...src };
@@ -55,11 +54,7 @@ globalThis.chrome = {
     sync: makeArea('sync'),
     local: makeArea('local'),
     session: makeArea('session'),
-    onChanged: { addListener: fn => changeListeners.push(fn) },
-    // Real sync has quotas that reject writes once they are reached. ?full
-    // pretends to be at the limit, which is the state the settings page has to
-    // report rather than claim a save that never happened.
-    QUOTA_BYTES: 102400
+    onChanged: { addListener: fn => changeListeners.push(fn) }
   },
   runtime: {
     openOptionsPage: () => console.log('[mock] openOptionsPage'),
