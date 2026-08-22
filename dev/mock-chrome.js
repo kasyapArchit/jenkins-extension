@@ -177,5 +177,12 @@ areas.local.runs = EMPTY ? [] : [
     params: { CLEAN_INSTALL: false, BRANCH: 'release/9.2', BUILD_CMD: 'qaProd' },
     status: 'SUCCESS', startedAt: Date.now() - 1080000, finishedAt: Date.now() - 1020000 },
   { id: 'r3', jobId: starred[1].id, name: 'web-prod-deploy', build: 88, url: starred[1].url + '/88',
-    status: 'FAILURE', startedAt: Date.now() - 7500000, finishedAt: Date.now() - 7200000 }
+    params: { BRANCH: 'master', TARGET: 'prod-eu' },
+    status: 'FAILURE', startedAt: Date.now() - 7500000, finishedAt: Date.now() - 7200000 },
+  { id: 'r4', jobId: starred[2].id, name: 'Storybook-Deploy', build: null, url: null,
+    params: { BRANCH: 'feature/design-tokens' }, why: 'Waiting for next available executor',
+    status: 'QUEUED', startedAt: Date.now() - 42000 },
+  { id: 'r5', jobId: starred[1].id, name: 'web-prod-deploy', build: null, url: null,
+    status: 'ERROR', error: 'Not permitted. The account may lack Build permission on this job.',
+    startedAt: Date.now() - 300000, finishedAt: Date.now() - 300000 }
 ];

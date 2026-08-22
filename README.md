@@ -39,10 +39,16 @@ back to the job's defaults the first time. This is the one-click path. Clicking 
 body opens the parameter form when you need to change something first. Drag the grip to
 reorder.
 
-**Activity** shows everything triggered from the extension, with the build number and the
-values each build ran with. Values only, not `KEY=value`: a branch name or a build command
-identifies itself, and the key doubles the length of a line that has to fit in 400px. The
-keys are in the tooltip. Booleans are left out entirely, since they are stored as real
+**Activity** shows everything triggered from the extension. Each card is two lines: name,
+build number and elapsed time on the first, the values the build ran with on the second.
+
+The status word is deliberately absent. The dot already says running, succeeded or failed,
+so printing SUCCESS next to a green dot spends a line on nothing. Queued is the one state a
+colour cannot express, so it gets a ring instead of a filled dot, and the dot's tooltip
+names the state either way, including the queue reason Jenkins gives.
+
+Values only, not `KEY=value`: a branch name or a build command identifies itself, and the
+key doubles the length of a line that has to fit in 400px. The keys are in the tooltip. Booleans are left out entirely, since they are stored as real
 booleans so the type is enough to filter on, and a row of `false` says nothing about what
 the build was. The starred cards still show `KEY=value`, because there you are about to
 edit the values rather than read them back. Running builds tick every second, can be aborted via

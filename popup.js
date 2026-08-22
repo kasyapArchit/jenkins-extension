@@ -412,7 +412,10 @@ function renderActivity() {
 
 function runCard(run) {
   const active = store.isActive(run);
-  const dot = el('div', { class: `run-dot ${active ? 'active' : run.status}` });
+  // Queued gets its own dot rather than sharing the running one: the dot is now
+  // the only thing carrying status, and "waiting" is not "working".
+  const dotClass = run.status === 'QUEUED' ? 'queued' : active ? 'active' : run.status;
+  const dot = el('div', { class: `run-dot ${dotClass}`, title: statusLabel(run) });
 
   const buttons = [];
   if (active && run.url) {
@@ -439,10 +442,12 @@ function runCard(run) {
     el('div', { class: 'run-text' }, [
       el('div', { class: 'run-head' }, [
         el('span', { class: 'run-name', textContent: run.name }),
-        run.build ? el('span', { class: 'run-build', textContent: `#${run.build}` }) : null
+        run.build ? el('span', { class: 'run-build', textContent: `#${run.build}` }) : null,
+        el('span', { class: 'run-time', textContent: runTime(run) })
       ]),
-      el('div', { class: 'run-meta', textContent: runMeta(run) }),
-      paramsLine(run)
+      run.status === 'ERROR'
+        ? el('div', { class: 'run-error', textContent: run.error || 'Failed to start' })
+        : paramsLine(run)
     ]),
     ...buttons
   ]);
@@ -465,11 +470,21 @@ function paramsLine(run) {
   });
 }
 
-function runMeta(run) {
-  if (run.status === 'QUEUED') return `Queued · ${run.why || elapsed(run.startedAt)}`;
-  if (run.status === 'RUNNING') return `Running · ${elapsed(run.buildStartedAt || run.startedAt)}`;
+// Time only. The dot carries the status, so repeating RUNNING or SUCCESS here
+// just spends a line saying what the colour already said.
+function runTime(run) {
+  if (run.status === 'QUEUED') return elapsed(run.startedAt);
+  if (run.status === 'RUNNING') return elapsed(run.buildStartedAt || run.startedAt);
+  return `${ago(run.finishedAt || run.startedAt)} ago`;
+}
+
+// The word still exists for the dot's tooltip, and for queued, where `why`
+// explains a wait the colour cannot.
+function statusLabel(run) {
+  if (run.status === 'QUEUED') return run.why ? `Queued — ${run.why}` : 'Queued';
+  if (run.status === 'RUNNING') return 'Running';
   if (run.status === 'ERROR') return run.error || 'Failed to start';
-  return `${run.status} · ${ago(run.finishedAt || run.startedAt)} ago`;
+  return run.status;
 }
 
 // Only the elapsed text changes every second, so patch it in place rather than
@@ -477,8 +492,10 @@ function runMeta(run) {
 function tickElapsed() {
   for (const run of runs) {
     if (!store.isActive(run)) continue;
-    const node = document.querySelector(`.run[data-run-id="${CSS.escape(run.id)}"] .run-meta`);
-    if (node) node.textContent = runMeta(run);
+    const row = document.querySelector(`.run[data-run-id="${CSS.escape(run.id)}"]`);
+    if (!row) continue;
+    row.querySelector('.run-time').textContent = runTime(run);
+    row.querySelector('.run-dot').title = statusLabel(run);
   }
 }
 
