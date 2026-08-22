@@ -86,6 +86,32 @@ CSRF, so no crumb is needed.
 crumb from `/crumbIssuer/api/json` before each POST. Use it if your Jenkins is behind SSO
 that blocks token auth. It breaks whenever your session expires.
 
+## Icons
+
+`python3 dev/make-icons.py` regenerates every PNG in `icons/` from geometry measured off
+the source artwork. Edit the constants at the top of that script rather than the PNGs.
+
+Three variants come out of it:
+
+| Variant | Square | Used for |
+|---|---|---|
+| `-mark` | transparent | the toolbar action icon, and notifications |
+| `-dark` | `#16181d` | the `icons` key: chrome://extensions, the store |
+| `-light` | `#ffffff` | unused; kept for the light tile if it is ever wanted |
+
+Chrome has no way to pick an icon by colour scheme. `icon_variants` is not in the manifest
+reference, and per the W3C WebExtensions issue only Safari implemented it. Firefox has
+`theme_icons`; Chrome does not. The only Chrome option is calling `chrome.action.setIcon()`
+at runtime, which needs a theme signal the service worker does not have.
+
+That does not cost anything here, because the toolbar uses the transparent mark. The tile
+was never going to disappear into the toolbar anyway: Chrome's dark toolbar is `#35363a`,
+lighter than the artwork's `#16181d`, so a dark tile stays visible as a tile in both themes.
+At 16px it also spends about 40% of the canvas on the tile and shrinks the disc to a dot.
+Dropping it lets the disc fill the icon and punches the play triangle straight through, so
+whatever the toolbar colour is shows in it. One file, correct on every theme, custom ones
+included.
+
 ## Working on the design
 
 `dev/preview.html` opens the popup in a normal browser tab with `dev/mock-chrome.js`

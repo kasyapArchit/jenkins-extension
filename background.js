@@ -154,7 +154,7 @@ async function announce(run, config) {
   if (config.notify === false) return;
   chrome.notifications.create(`${run.id}::done`, {
     type: 'basic',
-    iconUrl: 'icons/128.png',
+    iconUrl: 'icons/128-mark.png',
     title: `${run.name}${run.build ? ` #${run.build}` : ''} ${run.status}`,
     message: run.status === 'SUCCESS' ? 'Build finished successfully.' : `Build finished: ${run.status}`,
     priority: run.status === 'SUCCESS' ? 0 : 2
