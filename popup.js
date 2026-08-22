@@ -104,9 +104,13 @@ function renderBanner() {
   }
 
   if (ui.connection === 'unauthorized') {
+    const missing = config.authMode === 'token' && (!config.userId || !config.token);
     b.hidden = false;
     b.append(icon('alert-triangle', { size: 14 }),
-      el('span', { class: 'banner-text', textContent: 'Jenkins rejected the credentials.' }),
+      el('span', {
+        class: 'banner-text',
+        textContent: missing ? 'No API token saved yet.' : 'Jenkins rejected the credentials.'
+      }),
       el('button', { textContent: 'Fix in settings', onclick: () => chrome.runtime.openOptionsPage() }));
     return;
   }

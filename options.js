@@ -53,21 +53,54 @@ async function save() {
   status('Saved.', 'ok');
 }
 
+// Two checks, because they can disagree and that difference is the whole point.
+// The first uses the values currently in this form. The second asks the service
+// worker, which is what actually runs a build: stored config, its own copy of
+// the client. A green form check with a red worker check means the settings were
+// never saved, or Chrome is running a stale background script.
 async function test() {
   const candidate = collect();
   if (!candidate.baseUrl) return status('Enter a base URL first.', 'err');
   if (!(await grant(candidate.baseUrl))) return status('Host permission declined.', 'err');
 
-  status('Checking…');
+  status('Checking\u2026');
+
+  let form;
   try {
     const me = await jenkins.whoAmI(candidate);
-    if (!me.id || me.id === 'anonymous') {
-      return status('Reached Jenkins but you are anonymous. Check the token.', 'err');
-    }
-    const jobs = await jenkins.fetchJobIndex(candidate).catch(() => null);
-    const count = jobs ? ` · ${jobs.length} pipelines visible` : '';
-    status(`Connected as ${me.fullName || me.id}${count}.`, 'ok');
+    form = (me.id && me.id !== 'anonymous')
+      ? { ok: true, who: me.fullName || me.id }
+      : { ok: false, error: 'Reached Jenkins but you are anonymous. Check the token.' };
   } catch (err) {
-    status(err.message, 'err');
+    form = { ok: false, error: err.message };
   }
+
+  const worker = await chrome.runtime.sendMessage({ type: 'diagnose' })
+    .then(r => (r?.ok ? r.data : { ok: false, error: r?.error || 'The service worker did not answer.' }))
+    .catch(err => ({ ok: false, error: err.message }));
+
+  report(candidate, form, worker);
+}
+
+function report(candidate, form, worker) {
+  if (worker.clientBuild !== jenkins.CLIENT_BUILD) {
+    return status(
+      'The background script is running older code than this page. Open chrome://extensions, '
+      + 'toggle Jenkins Launcher off and on, then test again.', 'err');
+  }
+
+  if (!form.ok) return status(form.error, 'err');
+
+  if (!worker.ok) {
+    if (!worker.hasToken || !worker.userId) {
+      return status('These credentials work, but nothing is saved yet. Press Save, then test again.', 'err');
+    }
+    return status(`These credentials work, but a build would fail: ${worker.error}`, 'err');
+  }
+
+  if (worker.userId !== candidate.userId || worker.baseUrl !== candidate.baseUrl) {
+    return status(`Connected as ${form.who}, but the saved settings differ from this form. Press Save.`, 'err');
+  }
+
+  status(`Connected as ${worker.who}. Builds will run as this account.`, 'ok');
 }

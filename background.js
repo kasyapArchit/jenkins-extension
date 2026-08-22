@@ -27,10 +27,34 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
 async function handle(msg) {
   switch (msg.type) {
     case 'trigger':     return trigger(msg.pipelineId, msg.params, msg.persist);
+    case 'diagnose':    return diagnose();
     case 'poll':        return pollAll();
     case 'ensureAlarm': return ensureAlarm();
     default: throw new Error(`Unknown message: ${msg.type}`);
   }
+}
+
+// Reports what a build would actually use: the stored config, read by this
+// service worker, through this copy of the Jenkins client.
+async function diagnose() {
+  const config = await store.getConfig();
+  const out = {
+    clientBuild: jenkins.CLIENT_BUILD,
+    version: chrome.runtime.getManifest().version,
+    baseUrl: config.baseUrl,
+    userId: config.userId,
+    authMode: config.authMode,
+    hasToken: Boolean(config.token)
+  };
+  try {
+    const me = await jenkins.whoAmI(config);
+    out.ok = Boolean(me.id) && me.id !== 'anonymous';
+    out.who = me.fullName || me.id;
+  } catch (err) {
+    out.ok = false;
+    out.error = err.message;
+  }
+  return out;
 }
 
 async function trigger(pipelineId, params, persist) {

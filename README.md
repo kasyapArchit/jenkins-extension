@@ -102,14 +102,36 @@ The source design lives in `design_handoff_jenkins_launcher/`. Tokens in `popup.
 copied from it verbatim; icons are inlined Lucide paths in `lib/icons.js` rather than the
 prototype's Unicode placeholders.
 
+## Reloading during development
+
+Chrome does not always replace a running service worker when you hit Reload on an unpacked
+extension, so the popup can be new while the background script is still old code. Symptom:
+the popup looks right, Test connection is green, and triggering a build fails with an error
+message that no longer exists in the source.
+
+Test connection detects this. It runs two checks. The first uses the values currently in
+the options form. The second asks the service worker, which is what actually runs a build:
+stored config, its own loaded copy of the Jenkins client. If the worker reports a different
+`CLIENT_BUILD` than the options page, the test says so and tells you to toggle the extension
+off and on, which is the reliable way to replace the worker.
+
+The same test also catches settings you typed but never saved, since only the second check
+reads storage.
+
 ## Tests
 
 ```
 node test/normalize.test.mjs
+node test/auth.test.mjs
 ```
 
-Covers URL normalisation and root detection: reverse-proxy context paths, view segments,
-build and console suffixes, encoded branch names.
+`normalize` covers URL and root handling: reverse-proxy context paths, view segments, build
+and console suffixes, encoded branch names.
+
+`auth` covers the credential path against a stubbed fetch: basic auth is sent when a token
+exists, missing credentials throw before any request goes out, cookie mode sends no auth
+header, `probe()` maps every failure to one of the three header states, and `triggerBuild`
+picks the right endpoint and returns the queue URL.
 
 ## Known gaps
 
