@@ -299,7 +299,7 @@ a:hover {
 .result {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   padding: 8px;
   border-radius: 9px;
   background: var(--panel);
@@ -543,9 +543,11 @@ a:hover {
   display: flex;
   align-items: center;
   gap: 6px;
+  height: 2em;
 }
 .title-tools {
   margin-left: auto;
+  margin-right: 10px;
   display: flex;
   align-items: center;
   gap: 8px;

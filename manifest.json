@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Jenkins Quickfire",
-  "version": "0.8.4",
+  "version": "0.8.5",
   "description": "Trigger Jenkins pipelines with saved parameters and watch their status.",
   "permissions": ["storage", "alarms", "notifications"],
   "optional_host_permissions": ["*://*/*"],
