@@ -642,7 +642,7 @@ function runCard(run) {
         {
           class: "run-icon-btn",
           title: held
-            ? `Cannot be triggered — ${held}.`
+            ? blockedTitle(held)
             : "Run again with these same parameters",
           disabled: Boolean(held) || ui.busy.has(run.id),
           onclick: () => rerun(run),

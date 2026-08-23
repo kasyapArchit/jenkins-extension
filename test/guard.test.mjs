@@ -62,12 +62,12 @@ is(firstBadPattern(['  ']), null, 'blank is not bad');
 
 /* the tooltip points at settings only when the block is not liftable by hand */
 is(blockedTitle(null), '', 'no reason means no tooltip');
-is(blockedTitle('blocked by hand'), 'Cannot be triggered — blocked by hand.', 'hand block has no settings hint');
+is(blockedTitle('blocked by hand'), 'Blocked by hand.', 'hand block has no settings hint');
 is(blockedTitle('blocked by the pattern prod'),
-   'Cannot be triggered — blocked by the pattern prod. Edit the pattern in settings to lift it.',
+   'Blocked by the pattern prod. Edit the pattern in settings to lift it.',
    'pattern block points at settings');
 is(blockedTitle('blocked by the pattern prod', 'Opens the job in Jenkins.'),
-   'Cannot be triggered — blocked by the pattern prod. Opens the job in Jenkins. Edit the pattern in settings to lift it.',
+   'Blocked by the pattern prod. Opens the job in Jenkins. Edit the pattern in settings to lift it.',
    'action clause lands before the settings hint');
 
 console.log(failed ? `${failed} failing` : 'all guard assertions passed');
