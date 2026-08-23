@@ -4,7 +4,7 @@ import { icon } from "./lib/icons.js";
 import { BUILD } from "./lib/build.js";
 import { $, el, clear, elapsed, ago } from "./lib/dom.js";
 import { qualifiedName, buildLabel, normalizeSearchText } from "./lib/format.js";
-import { blockReason, isPatternBlock } from "./lib/guard.js";
+import { blockReason, isPatternBlock, blockedTitle } from "./lib/guard.js";
 import { anyWanted } from "./lib/watch.js";
 
 const MAX_RESULTS = 7;
@@ -357,7 +357,7 @@ function renderResults() {
       textContent: held ? "Open" : busy ? "…" : "Run",
       disabled: !held && busy,
       title: held
-        ? `Cannot be triggered — ${held}. Opens the job in Jenkins.`
+        ? blockedTitle(held, "Opens the job in Jenkins.")
         : "Trigger with the saved or default parameters",
       onclick: (e) => {
         e.stopPropagation();
@@ -828,9 +828,7 @@ function pipelineCard(p) {
     class: `run-btn${reason ? " held" : ""}`,
     textContent: reason ? "Open" : ui.busy.has(p.id) ? "Starting…" : "Run",
     disabled: !reason && ui.busy.has(p.id),
-    title: reason
-      ? `Cannot be triggered — ${reason}. Opens the job in Jenkins.`
-      : "",
+    title: reason ? blockedTitle(reason, "Opens the job in Jenkins.") : "",
     onclick: (e) => {
       e.stopPropagation();
       reason ? openInJenkins(p) : triggerPipeline(p);
@@ -1005,7 +1003,7 @@ function paramPanel(p, isStarred = true) {
         ? "Starting…"
         : "Trigger build",
     disabled: !reason && ui.busy.has(p.id),
-    title: reason ? `Cannot be triggered — ${reason}.` : "",
+    title: blockedTitle(reason),
     onclick: () => (reason ? openInJenkins(p) : triggerPipeline(p)),
   });
   const sync = el("button", {
@@ -1191,7 +1189,7 @@ function lockButton(p, rerender) {
       class: `lock-btn${reason ? " on" : ""}`,
       disabled: fromPattern,
       title: fromPattern
-        ? `Cannot be triggered — ${reason}. Edit the pattern in settings to lift it.`
+        ? blockedTitle(reason)
         : reason
           ? "Blocked. Click to allow triggering again."
           : "Allow triggering. Click to block it.",

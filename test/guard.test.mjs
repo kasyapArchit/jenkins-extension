@@ -1,5 +1,5 @@
 // node test/guard.test.mjs
-import { blockReason, isPatternBlock, firstBadPattern, compileDeny } from '../lib/guard.js';
+import { blockReason, isPatternBlock, firstBadPattern, compileDeny, blockedTitle } from '../lib/guard.js';
 
 const job = (id, fullName) => ({ id, fullName, name: fullName.split('/').pop() });
 const QA = job('a', 'Frontend/QA');
@@ -59,6 +59,16 @@ is(firstBadPattern(['ok', '[unclosed']).source, '[unclosed', 'reports the bad so
 is(firstBadPattern(['ok', 'also ok']), null, 'all good');
 is(firstBadPattern([]), null, 'empty list');
 is(firstBadPattern(['  ']), null, 'blank is not bad');
+
+/* the tooltip points at settings only when the block is not liftable by hand */
+is(blockedTitle(null), '', 'no reason means no tooltip');
+is(blockedTitle('blocked by hand'), 'Cannot be triggered — blocked by hand.', 'hand block has no settings hint');
+is(blockedTitle('blocked by the pattern prod'),
+   'Cannot be triggered — blocked by the pattern prod. Edit the pattern in settings to lift it.',
+   'pattern block points at settings');
+is(blockedTitle('blocked by the pattern prod', 'Opens the job in Jenkins.'),
+   'Cannot be triggered — blocked by the pattern prod. Opens the job in Jenkins. Edit the pattern in settings to lift it.',
+   'action clause lands before the settings hint');
 
 console.log(failed ? `${failed} failing` : 'all guard assertions passed');
 process.exit(failed ? 1 : 0);
