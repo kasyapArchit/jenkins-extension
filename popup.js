@@ -3,7 +3,7 @@ import * as jenkins from "./lib/jenkins.js";
 import { icon } from "./lib/icons.js";
 import { BUILD } from "./lib/build.js";
 import { $, el, clear, elapsed, ago } from "./lib/dom.js";
-import { qualifiedName, buildLabel } from "./lib/format.js";
+import { qualifiedName, buildLabel, normalizeSearchText } from "./lib/format.js";
 import { blockReason, isPatternBlock } from "./lib/guard.js";
 import { anyWanted } from "./lib/watch.js";
 
@@ -290,14 +290,18 @@ async function warmIndex() {
 }
 
 function matches(query) {
-  const q = query.trim().toLowerCase();
+  const q = normalizeSearchText(query);
+  if (!q) return [];
+  // Every space-separated word has to show up somewhere in the path, in any
+  // order, so "email backup qa" still finds "email-backup/QA".
+  const qWords = q.split(" ");
   const scored = [];
   for (const job of index || []) {
-    const name = job.name.toLowerCase();
-    const full = job.fullName.toLowerCase();
-    if (!name.includes(q) && !full.includes(q)) continue;
-    // Prefix hits on the leaf name rank above folder-path hits.
-    const score = name.startsWith(q) ? 0 : name.includes(q) ? 1 : 2;
+    const name = normalizeSearchText(job.name);
+    const full = normalizeSearchText(job.fullName);
+    if (!qWords.every((w) => full.includes(w))) continue;
+    // Prefix and contiguous hits rank above hits that only match word-by-word.
+    const score = name.startsWith(q) ? 0 : name.includes(q) ? 1 : full.includes(q) ? 2 : 3;
     scored.push({ job, score });
   }
   scored.sort(

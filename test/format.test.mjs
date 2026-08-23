@@ -1,5 +1,5 @@
 // node test/format.test.mjs
-import { qualifiedName, buildLabel } from '../lib/format.js';
+import { qualifiedName, buildLabel, normalizeSearchText } from '../lib/format.js';
 
 const cases = [
   [['Webmail/QA', 'QA'],            'QA · Webmail'],
@@ -34,5 +34,18 @@ for (const [run, want] of labels) {
   if (got !== want) { failed++; console.error(`FAIL buildLabel ${JSON.stringify(run)} -> "${got}" (want "${want}")`); }
 }
 
-console.log(failed ? `${failed} failing` : `${cases.length + labels.length} format assertions passed`);
+const normalized = [
+  ['email backup qa',   'email backup qa'],
+  ['email-backup/QA',   'email backup qa'],
+  ['Email_Backup/qa',   'email backup qa'],
+  ['  Deploy   Prod ',  'deploy prod'],
+  ['',                  ''],
+  [null,                ''],
+];
+for (const [input, want] of normalized) {
+  const got = normalizeSearchText(input);
+  if (got !== want) { failed++; console.error(`FAIL normalizeSearchText(${JSON.stringify(input)}) -> "${got}" (want "${want}")`); }
+}
+
+console.log(failed ? `${failed} failing` : `${cases.length + labels.length + normalized.length} format assertions passed`);
 process.exit(failed ? 1 : 0);
