@@ -6,7 +6,8 @@ const cases = [
   [['Drive-web/QA', 'QA'],          'QA · Drive-web'],
   [['Email-Backup/QA', 'QA'],       'QA · Email-Backup'],
   [['QA', 'QA'],                    'QA'],           // root job keeps its bare name
-  [['Frontend/Sub/QA', 'QA'],       'QA · Sub'], // immediate parent, not the top folder
+  [['Frontend/Sub/QA', 'QA'],       'QA · Frontend · Sub'], // every ancestor, root first
+  [['Grand/Parent/Sub/QA', 'QA'],   'QA · Grand · Parent · Sub'],
   [['', 'QA'],                      'QA'],
   [[null, 'QA'],                    'QA'],
   [[undefined, 'QA'],               'QA'],
