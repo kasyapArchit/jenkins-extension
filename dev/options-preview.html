@@ -17,6 +17,14 @@
     const html = await (await fetch('../options.html', { cache: 'no-store' })).text();
     const doc = new DOMParser().parseFromString(html, 'text/html');
     document.head.append(...doc.head.querySelectorAll('style'));
+    // options.html's own <link> hrefs are relative to the project root, not to
+    // this page under dev/, so they are re-resolved against ../options.html
+    // rather than copied as-is.
+    for (const link of doc.head.querySelectorAll('link[rel="stylesheet"]')) {
+      const clone = link.cloneNode();
+      clone.href = new URL(link.getAttribute('href'), new URL('../options.html', location.href));
+      document.head.append(clone);
+    }
     document.body.append(doc.querySelector('.sheet'));
     await import('../options.js');
   </script>

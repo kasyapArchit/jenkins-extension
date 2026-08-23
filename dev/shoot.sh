@@ -20,11 +20,23 @@ server=$!
 trap 'kill $server 2>/dev/null' EXIT
 sleep 1
 
+# A killed-not-quit Chrome can leave its SingletonLock behind, so the next shot
+# reuses a profile that thinks it's already running and never loads the page.
+# Wiped up front rather than after, so a run that dies mid-way still leaves a
+# clean slate for the next one.
+rm -rf /tmp/jenkins-launcher-shots
+
 shoot() {
   local out="docs/$1.png" url="http://localhost:$port/dev/$2" w="${3:-400}" h="${4:-640}"
+  # --screenshot fires on the page's load event, which beats both the async
+  # fetch-and-inject in options-preview.html and shots.js's until() polling for
+  # search results or an opened panel. --virtual-time-budget makes Chrome run
+  # its virtual clock forward that far before capturing, so timers and pending
+  # promises actually settle first instead of racing the shot.
   "$chrome" --headless=new --disable-gpu --no-sandbox \
     --user-data-dir=/tmp/jenkins-launcher-shots --hide-scrollbars \
-    --window-size="$w,$h" --screenshot="$root/$out" "$url" >/dev/null 2>&1 &
+    --window-size="$w,$h" --virtual-time-budget=8000 \
+    --screenshot="$root/$out" "$url" >/dev/null 2>&1 &
   local pid=$!
   sleep 12
   kill $pid 2>/dev/null || true
