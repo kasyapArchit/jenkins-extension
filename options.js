@@ -192,13 +192,21 @@ const flashTimers = new Map();
 function flash(fieldset, text, kind) {
   const out = $(`${fieldset}-saved`);
   if (!out) return;
+  clearTimeout(flashTimers.get(fieldset));
+
+  // A successful autosave stays silent; only a refusal is worth showing.
+  if (kind === 'ok') {
+    out.textContent = '';
+    out.className = 'hint autosave';
+    return;
+  }
+
   out.textContent = text;
   out.className = `hint autosave ${kind}`;
-  clearTimeout(flashTimers.get(fieldset));
   flashTimers.set(fieldset, setTimeout(() => {
-    out.textContent = 'Saves automatically.';
+    out.textContent = '';
     out.className = 'hint autosave';
-  }, kind === 'ok' ? 2000 : 6000));
+  }, 6000));
 }
 
 // Two checks, because they can disagree and that difference is the whole point.
