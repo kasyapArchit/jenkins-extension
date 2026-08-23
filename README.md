@@ -349,17 +349,3 @@ now.
   before a run is recorded.
 - Subscription notifications need Chrome running and the controller reachable. There is no
   push from Jenkins, only the thirty-second alarm.
-- Untested against a live Jenkins controller. Everything here is verified against the harness
-  and the unit tests.
-
-## Roadmap
-
-- [ ] **Notify when a build fails to start.** `pollAll()` marks these `ERROR` without calling
-      `announce()`, so a build that never begins is silent.
-
-## VPN
-
-Chrome has no VPN API, and an extension cannot bind its own traffic to a tunnel. The workable
-fix is split tunnelling at the OS level: with OpenVPN, `route-nopull` plus an explicit `route`
-for the Jenkins subnet lets the tunnel stay up all day while carrying only Jenkins traffic.
-Note that `route-nopull` also drops the pushed DNS.

@@ -1,11 +1,11 @@
-import * as store from './lib/store.js';
-import * as jenkins from './lib/jenkins.js';
-import { icon } from './lib/icons.js';
-import { BUILD } from './lib/build.js';
-import { $, el, clear, elapsed, ago } from './lib/dom.js';
-import { qualifiedName, buildLabel } from './lib/format.js';
-import { blockReason, isPatternBlock } from './lib/guard.js';
-import { anyWanted } from './lib/watch.js';
+import * as store from "./lib/store.js";
+import * as jenkins from "./lib/jenkins.js";
+import { icon } from "./lib/icons.js";
+import { BUILD } from "./lib/build.js";
+import { $, el, clear, elapsed, ago } from "./lib/dom.js";
+import { qualifiedName, buildLabel } from "./lib/format.js";
+import { blockReason, isPatternBlock } from "./lib/guard.js";
+import { anyWanted } from "./lib/watch.js";
 
 const MAX_RESULTS = 7;
 const SEARCH_DEBOUNCE_MS = 200;
@@ -13,10 +13,10 @@ const SEARCH_DEBOUNCE_MS = 200;
 let config = null;
 let starred = [];
 let paramValues = {};
-let blocked = [];             // pipeline ids blocked by hand
-let subscribed = [];          // pipelines being watched whoever starts them
+let blocked = []; // pipeline ids blocked by hand
+let subscribed = []; // pipelines being watched whoever starts them
 let runs = [];
-let index = null;             // flat job list, null until loaded
+let index = null; // flat job list, null until loaded
 let indexError = null;
 
 // Parameter definitions for jobs that are not starred, so search can trigger
@@ -24,28 +24,34 @@ let indexError = null;
 const jobMeta = new Map();
 
 const ui = {
-  query: '',
+  query: "",
   openId: null,
-  openResult: null,       // search result whose parameter panel is expanded
+  openResult: null, // search result whose parameter panel is expanded
   addOpen: false,
-  subsOpen: false,        // the subscribed-pipelines list under the footer
-  connection: 'checking',     // checking | online | offline | unauthorized
-  worker: 'ok',               // ok | stale | silent
+  subsOpen: false, // the subscribed-pipelines list under the footer
+  connection: "checking", // checking | online | offline | unauthorized
+  worker: "ok", // ok | stale | silent
   activeResult: 0,
-  justOpened: null,       // the one card whose panel should animate on this render
+  justOpened: null, // the one card whose panel should animate on this render
   dragId: null,
-  drafts: new Map(),          // pipelineId -> { KEY: value } being edited
-  busy: new Set(),            // pipeline ids mid-trigger
-  errors: new Map()           // pipelineId -> message
+  drafts: new Map(), // pipelineId -> { KEY: value } being edited
+  busy: new Set(), // pipeline ids mid-trigger
+  errors: new Map(), // pipelineId -> message
 };
 
 init();
 
 async function init() {
-  [config, starred, paramValues, blocked, subscribed, runs] = await Promise.all([
-    store.getConfig(), store.getStarred(), store.getAllParamValues(),
-    store.getBlocked(), store.getSubscriptions(), store.getRuns()
-  ]);
+  [config, starred, paramValues, blocked, subscribed, runs] = await Promise.all(
+    [
+      store.getConfig(),
+      store.getStarred(),
+      store.getAllParamValues(),
+      store.getBlocked(),
+      store.getSubscriptions(),
+      store.getRuns(),
+    ],
+  );
 
   mountChrome();
   renderAll();
@@ -53,7 +59,7 @@ async function init() {
   store.onChange(onStorageChanged);
   setInterval(tickElapsed, 1000);
 
-  chrome.runtime.sendMessage({ type: 'poll' }).catch(() => {});
+  chrome.runtime.sendMessage({ type: "poll" }).catch(() => {});
   checkWorker();
   refreshConnection();
   warmIndex();
@@ -63,28 +69,34 @@ async function init() {
 // disagree the worker is running code the user already replaced, and every
 // symptom after that is a red herring.
 async function checkWorker() {
-  const res = await chrome.runtime.sendMessage({ type: 'ping' }).catch(() => null);
-  if (!res?.ok) ui.worker = 'silent';
-  else ui.worker = res.data?.build === BUILD ? 'ok' : 'stale';
+  const res = await chrome.runtime
+    .sendMessage({ type: "ping" })
+    .catch(() => null);
+  if (!res?.ok) ui.worker = "silent";
+  else ui.worker = res.data?.build === BUILD ? "ok" : "stale";
   renderBanner();
 }
 
 /* ---------- static chrome ---------- */
 
 function mountChrome() {
-  $('#refresh').append(icon('refresh-cw'));
-  $('#settings').append(icon('settings', { size: 17 }));
-  $('#search-icon').append(icon('search', { size: 14 }));
-  $('#q-clear').append(icon('x', { size: 13 }));
+  $("#refresh").append(icon("refresh-cw"));
+  $("#settings").append(icon("settings", { size: 17 }));
+  $("#search-icon").append(icon("search", { size: 14 }));
+  $("#q-clear").append(icon("x", { size: 13 }));
 
-  $('#settings').addEventListener('click', () => chrome.runtime.openOptionsPage());
-  $('#refresh').addEventListener('click', onRefresh);
-  $('#q').addEventListener('input', onQueryInput);
-  $('#q').addEventListener('keydown', onSearchKey);
-  $('#q-clear').addEventListener('click', clearQuery);
-  $('#add-toggle').addEventListener('click', toggleAdd);
-  $('#add-btn').addEventListener('click', onAdd);
-  $('#add-url').addEventListener('keydown', e => { if (e.key === 'Enter') onAdd(); });
+  $("#settings").addEventListener("click", () =>
+    chrome.runtime.openOptionsPage(),
+  );
+  $("#refresh").addEventListener("click", onRefresh);
+  $("#q").addEventListener("input", onQueryInput);
+  $("#q").addEventListener("keydown", onSearchKey);
+  $("#q-clear").addEventListener("click", clearQuery);
+  $("#add-toggle").addEventListener("click", toggleAdd);
+  $("#add-btn").addEventListener("click", onAdd);
+  $("#add-url").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") onAdd();
+  });
 }
 
 function renderAll() {
@@ -100,67 +112,98 @@ function renderAll() {
 /* ---------- header and connection ---------- */
 
 function renderHeader() {
-  const dot = $('#conn-dot');
+  const dot = $("#conn-dot");
   const state = ui.connection;
-  dot.className = `conn-dot ${state === 'checking' ? '' : state}`;
+  dot.className = `conn-dot ${state === "checking" ? "" : state}`;
   dot.title = {
-    checking: 'Checking the controller…',
-    online: 'Reachable — last checked just now',
-    offline: 'Controller unreachable. Are you on the VPN?',
-    unauthorized: 'Jenkins rejected the credentials — check your API token in settings'
+    checking: "Checking the controller…",
+    online: "Reachable — last checked just now",
+    offline: "Controller unreachable. Are you on the VPN?",
+    unauthorized:
+      "Jenkins rejected the credentials — check your API token in settings",
   }[state];
 
-  $('#conn-label').textContent = {
-    checking: 'Checking…', online: 'Connected', offline: 'No VPN', unauthorized: 'Auth failed'
+  $("#conn-label").textContent = {
+    checking: "Checking…",
+    online: "Connected",
+    offline: "No VPN",
+    unauthorized: "Auth failed",
   }[state];
 
   const host = jenkins.hostOf(config.baseUrl);
   const bits = [host, `polling every ${config.pollSeconds}s`].filter(Boolean);
-  $('#conn-context').textContent = bits.length ? `· ${bits.join(' · ')}` : '';
+  $("#conn-context").textContent = bits.length ? `· ${bits.join(" · ")}` : "";
 }
 
 function renderBanner() {
-  const b = clear($('#banner'));
+  const b = clear($("#banner"));
 
   // First, because a stale worker makes every other diagnosis untrustworthy.
-  if (ui.worker !== 'ok') {
+  if (ui.worker !== "ok") {
     b.hidden = false;
-    b.append(icon('alert-triangle', { size: 14 }),
-      el('span', {
-        class: 'banner-text',
-        textContent: ui.worker === 'stale'
-          ? 'The background script is running older code than this popup.'
-          : 'The background script is not responding.'
+    b.append(
+      icon("alert-triangle", { size: 14 }),
+      el("span", {
+        class: "banner-text",
+        textContent:
+          ui.worker === "stale"
+            ? "The background script is running older code than this popup."
+            : "The background script is not responding.",
       }),
-      el('button', { textContent: 'Reload', onclick: () => chrome.runtime.reload() }));
+      el("button", {
+        textContent: "Reload",
+        onclick: () => chrome.runtime.reload(),
+      }),
+    );
     return;
   }
 
   if (!config.baseUrl) {
     b.hidden = false;
-    b.append(icon('alert-triangle', { size: 14 }),
-      el('span', { class: 'banner-text', textContent: 'No Jenkins controller configured yet.' }),
-      el('button', { textContent: 'Settings', onclick: () => chrome.runtime.openOptionsPage() }));
-    return;
-  }
-
-  if (ui.connection === 'unauthorized') {
-    const missing = config.authMode === 'token' && (!config.userId || !config.token);
-    b.hidden = false;
-    b.append(icon('alert-triangle', { size: 14 }),
-      el('span', {
-        class: 'banner-text',
-        textContent: missing ? 'No API token saved yet.' : 'Jenkins rejected the credentials.'
+    b.append(
+      icon("alert-triangle", { size: 14 }),
+      el("span", {
+        class: "banner-text",
+        textContent: "No Jenkins controller configured yet.",
       }),
-      el('button', { textContent: 'Fix in settings', onclick: () => chrome.runtime.openOptionsPage() }));
+      el("button", {
+        textContent: "Settings",
+        onclick: () => chrome.runtime.openOptionsPage(),
+      }),
+    );
     return;
   }
 
-  if (ui.connection === 'offline') {
+  if (ui.connection === "unauthorized") {
+    const missing =
+      config.authMode === "token" && (!config.userId || !config.token);
     b.hidden = false;
-    b.append(icon('alert-triangle', { size: 14 }),
-      el('span', { class: 'banner-text', textContent: 'Controller unreachable. Showing last known data.' }),
-      el('button', { textContent: 'Retry', onclick: onRefresh }));
+    b.append(
+      icon("alert-triangle", { size: 14 }),
+      el("span", {
+        class: "banner-text",
+        textContent: missing
+          ? "No API token saved yet."
+          : "Jenkins rejected the credentials.",
+      }),
+      el("button", {
+        textContent: "Fix in settings",
+        onclick: () => chrome.runtime.openOptionsPage(),
+      }),
+    );
+    return;
+  }
+
+  if (ui.connection === "offline") {
+    b.hidden = false;
+    b.append(
+      icon("alert-triangle", { size: 14 }),
+      el("span", {
+        class: "banner-text",
+        textContent: "Controller unreachable. Showing last known data.",
+      }),
+      el("button", { textContent: "Retry", onclick: onRefresh }),
+    );
     return;
   }
 
@@ -168,29 +211,34 @@ function renderBanner() {
 }
 
 async function refreshConnection() {
-  if (!config.baseUrl) { ui.connection = 'offline'; renderHeader(); renderBanner(); return; }
+  if (!config.baseUrl) {
+    ui.connection = "offline";
+    renderHeader();
+    renderBanner();
+    return;
+  }
   ui.connection = await jenkins.probe(config);
-  $('#body').classList.toggle('stale', ui.connection === 'offline');
+  $("#body").classList.toggle("stale", ui.connection === "offline");
   renderHeader();
   renderBanner();
 }
 
 async function onRefresh() {
-  const btn = $('#refresh');
-  btn.classList.add('spinning');
+  const btn = $("#refresh");
+  btn.classList.add("spinning");
   store.clearIndex();
   index = null;
   indexError = null;
   await Promise.all([
     refreshConnection(),
-    chrome.runtime.sendMessage({ type: 'poll' }).catch(() => {}),
-    warmIndex()
+    chrome.runtime.sendMessage({ type: "poll" }).catch(() => {}),
+    warmIndex(),
   ]);
   runs = await store.getRuns();
   renderActivity();
   renderFooter();
   if (ui.query) renderResults();
-  btn.classList.remove('spinning');
+  btn.classList.remove("spinning");
 }
 
 /* ---------- search ---------- */
@@ -200,30 +248,37 @@ let searchTimer = null;
 function onQueryInput(ev) {
   ui.query = ev.target.value;
   ui.activeResult = 0;
-  $('#q-clear').hidden = !ui.query;
+  $("#q-clear").hidden = !ui.query;
   clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => { renderMode(); renderResults(); }, SEARCH_DEBOUNCE_MS);
+  searchTimer = setTimeout(() => {
+    renderMode();
+    renderResults();
+  }, SEARCH_DEBOUNCE_MS);
 }
 
 function clearQuery() {
-  ui.query = '';
-  $('#q').value = '';
-  $('#q-clear').hidden = true;
+  ui.query = "";
+  $("#q").value = "";
+  $("#q-clear").hidden = true;
   clearTimeout(searchTimer);
   renderMode();
-  $('#q').focus();
+  $("#q").focus();
 }
 
 function renderMode() {
   const searching = ui.query.trim().length > 0;
-  $('#search-mode').hidden = !searching;
-  $('#browse-mode').hidden = searching;
+  $("#search-mode").hidden = !searching;
+  $("#browse-mode").hidden = searching;
 }
 
 async function warmIndex() {
   if (!config.baseUrl) return;
   const cached = await store.getCachedIndex();
-  if (cached) { index = cached; if (ui.query) renderResults(); return; }
+  if (cached) {
+    index = cached;
+    if (ui.query) renderResults();
+    return;
+  }
   try {
     index = await jenkins.fetchJobIndex(config);
     indexError = null;
@@ -245,92 +300,129 @@ function matches(query) {
     const score = name.startsWith(q) ? 0 : name.includes(q) ? 1 : 2;
     scored.push({ job, score });
   }
-  scored.sort((a, b) => a.score - b.score || a.job.fullName.localeCompare(b.job.fullName));
-  return scored.slice(0, MAX_RESULTS).map(s => s.job);
+  scored.sort(
+    (a, b) => a.score - b.score || a.job.fullName.localeCompare(b.job.fullName),
+  );
+  return scored.slice(0, MAX_RESULTS).map((s) => s.job);
 }
 
 function renderResults() {
-  const wrap = clear($('#results'));
-  const note = $('#results-empty');
+  const wrap = clear($("#results"));
+  const note = $("#results-empty");
   const q = ui.query.trim();
   if (!q) return;
 
   if (index === null) {
     note.hidden = false;
-    note.textContent = indexError ? indexError : 'Loading the pipeline list…';
-    $('#results-label').textContent = 'ALL PIPELINES';
+    note.textContent = indexError ? indexError : "Loading the pipeline list…";
+    $("#results-label").textContent = "ALL PIPELINES";
     return;
   }
 
   const hits = matches(q);
-  $('#results-label').textContent = `ALL PIPELINES · ${hits.length}`;
+  $("#results-label").textContent = `ALL PIPELINES · ${hits.length}`;
   note.hidden = hits.length > 0;
-  if (!hits.length) { note.textContent = `No pipeline matches “${q}”.`; return; }
+  if (!hits.length) {
+    note.textContent = `No pipeline matches “${q}”.`;
+    return;
+  }
 
   ui.activeResult = Math.min(ui.activeResult, hits.length - 1);
 
   hits.forEach((job, i) => {
-    const on = starred.some(p => p.id === job.id);
+    const on = starred.some((p) => p.id === job.id);
     const open = ui.openResult === job.id;
     const busy = ui.busy.has(job.id);
 
-    const starBtn = el('button', {
-      class: `star-btn${on ? ' on' : ''}`,
-      title: on ? 'Unstar' : 'Star',
-      onclick: e => { e.stopPropagation(); toggleStar(job); }
-    }, icon('star', { size: 14, fill: on }));
+    const starBtn = el(
+      "button",
+      {
+        class: `star-btn${on ? " on" : ""}`,
+        title: on ? "Unstar" : "Star",
+        onclick: (e) => {
+          e.stopPropagation();
+          toggleStar(job);
+        },
+      },
+      icon("star", { size: 14, fill: on }),
+    );
 
     const held = whyBlocked(job);
-    const runBtn = el('button', {
-      class: `run-btn compact${held ? ' held' : ''}`,
-      textContent: held ? 'Open' : busy ? '…' : 'Run',
+    const runBtn = el("button", {
+      class: `run-btn compact${held ? " held" : ""}`,
+      textContent: held ? "Open" : busy ? "…" : "Run",
       disabled: !held && busy,
       title: held
         ? `Cannot be triggered — ${held}. Opens the job in Jenkins.`
-        : 'Trigger with the saved or default parameters',
-      onclick: e => { e.stopPropagation(); held ? openInJenkins(job) : runJob(job); }
+        : "Trigger with the saved or default parameters",
+      onclick: (e) => {
+        e.stopPropagation();
+        held ? openInJenkins(job) : runJob(job);
+      },
     });
 
-    const row = el('div', {
-      class: `result${i === ui.activeResult ? ' active' : ''}`,
-      onclick: () => toggleResult(job),
-      onmouseenter: () => { ui.activeResult = i; highlightResults(); }
-    }, [
-      starBtn,
-      // The lock appears here only when it has something to say. A row carrying
-      // star, lock, name, time and Run inside 400px leaves the name nothing, and
-      // an unblocked pipeline is the normal case that needs no mark. Blocking
-      // one from search therefore means starring it first, or writing a pattern.
-      el('div', { class: 'result-text' }, [
-        bellButton(job, renderResults),
-        held ? lockButton(job, renderResults) : null,
-        el('div', {
-          class: 'result-name',
-          textContent: qualifiedName(job.fullName, job.name),
-          title: job.fullName || job.name
-        })
-      ]),
-      el('div', {
-        class: 'result-last',
-        textContent: job.lastBuildAt ? `${ago(job.lastBuildAt)} ago` : 'never run'
-      }),
-      runBtn
-    ]);
+    const row = el(
+      "div",
+      {
+        class: `result${i === ui.activeResult ? " active" : ""}`,
+        onclick: () => toggleResult(job),
+        onmouseenter: () => {
+          ui.activeResult = i;
+          highlightResults();
+        },
+      },
+      [
+        starBtn,
+        // The lock appears here only when it has something to say. A row carrying
+        // star, lock, name, time and Run inside 400px leaves the name nothing, and
+        // an unblocked pipeline is the normal case that needs no mark. Blocking
+        // one from search therefore means starring it first, or writing a pattern.
+        el("div", { class: "result-text" }, [
+          bellButton(job, renderResults),
+          held ? lockButton(job, renderResults) : null,
+          el("div", {
+            class: "result-name",
+            textContent: qualifiedName(job.fullName, job.name),
+            title: job.fullName || job.name,
+          }),
+        ]),
+        el("div", {
+          class: "result-last",
+          textContent: job.lastBuildAt
+            ? `${ago(job.lastBuildAt)} ago`
+            : "never run",
+        }),
+        runBtn,
+      ],
+    );
 
     const opening = open && ui.justOpened === job.id;
-    const card = el('div', {
-      class: `result-card${open && !opening ? ' open' : ''}`,
-      dataset: { id: job.id }
-    }, row);
+    const card = el(
+      "div",
+      {
+        class: `result-card${open && !opening ? " open" : ""}`,
+        dataset: { id: job.id },
+      },
+      row,
+    );
 
     if (open) {
       const p = pipelineFor(job);
       const panel = p
         ? paramPanel(p, on)
-        : el('div', { class: 'panel' }, el('div', {
-            class: 'pdesc', textContent: ui.errors.get(job.id) || 'Reading parameters…'
-          }));
-      const slide = el('div', { class: `panel-wrap${opening ? '' : ' open'}` }, panel);
+        : el(
+            "div",
+            { class: "panel" },
+            el("div", {
+              class: "pdesc",
+              textContent: ui.errors.get(job.id) || "Reading parameters…",
+            }),
+          );
+      const slide = el(
+        "div",
+        { class: `panel-wrap${opening ? "" : " open"}` },
+        panel,
+      );
       card.append(slide);
       if (opening) reveal(card, slide);
     }
@@ -342,7 +434,7 @@ function renderResults() {
 // entry wins; otherwise it is assembled from the search hit plus whatever
 // definitions have been fetched. Null means the definitions are not in yet.
 function pipelineFor(job) {
-  const entry = starred.find(x => x.id === job.id);
+  const entry = starred.find((x) => x.id === job.id);
   if (entry) return entry;
   const meta = jobMeta.get(job.id);
   if (!meta) return null;
@@ -353,12 +445,13 @@ function pipelineFor(job) {
     fullName: meta.fullName || job.fullName,
     folder: meta.fullName || job.fullName,
     params: meta.params,
-    lastRunAt: meta.lastBuildAt ?? job.lastBuildAt ?? null
+    lastRunAt: meta.lastBuildAt ?? job.lastBuildAt ?? null,
   };
 }
 
 async function loadMeta(job) {
-  if (starred.some(x => x.id === job.id) || jobMeta.has(job.id)) return pipelineFor(job);
+  if (starred.some((x) => x.id === job.id) || jobMeta.has(job.id))
+    return pipelineFor(job);
   try {
     jobMeta.set(job.id, await jenkins.getJobMeta(job.url, config));
     ui.errors.delete(job.id);
@@ -372,46 +465,61 @@ async function loadMeta(job) {
 async function toggleResult(job) {
   if (ui.openResult === job.id) {
     ui.openResult = null;
-    collapse($(`#results .result-card[data-id="${CSS.escape(job.id)}"]`), renderResults);
+    collapse(
+      $(`#results .result-card[data-id="${CSS.escape(job.id)}"]`),
+      renderResults,
+    );
     return;
   }
   ui.openResult = job.id;
   ui.justOpened = job.id;
   const known = Boolean(pipelineFor(job));
-  renderResults();                 // show the panel straight away
-  if (known) return;               // nothing to fetch, so nothing to re-render
+  renderResults(); // show the panel straight away
+  if (known) return; // nothing to fetch, so nothing to re-render
   await loadMeta(job);
-  renderResults();                 // swaps in the form, or surfaces the error
+  renderResults(); // swaps in the form, or surfaces the error
 }
 
 async function runJob(job) {
   // Checked before the round trip for definitions, so Enter on a blocked result
   // does what its Run button does rather than fetching and then refusing.
-  if (whyBlocked(job)) { openInJenkins(job); return; }
+  if (whyBlocked(job)) {
+    openInJenkins(job);
+    return;
+  }
   const p = await loadMeta(job);
-  if (!p) { renderResults(); return; }
+  if (!p) {
+    renderResults();
+    return;
+  }
   triggerPipeline(p);
 }
 
 function highlightResults() {
-  [...$('#results').children].forEach((card, i) =>
-    card.querySelector('.result')?.classList.toggle('active', i === ui.activeResult));
+  [...$("#results").children].forEach((card, i) =>
+    card
+      .querySelector(".result")
+      ?.classList.toggle("active", i === ui.activeResult),
+  );
 }
 
 function onSearchKey(ev) {
-  if (ev.key === 'Escape') { clearQuery(); return; }
-  const rows = $('#results').children;
-  if (!ui.query.trim() || !rows.length) return;
-
-  if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
-    ev.preventDefault();
-    const delta = ev.key === 'ArrowDown' ? 1 : -1;
-    ui.activeResult = (ui.activeResult + delta + rows.length) % rows.length;
-    highlightResults();
-    rows[ui.activeResult].scrollIntoView({ block: 'nearest' });
+  if (ev.key === "Escape") {
+    clearQuery();
     return;
   }
-  if (ev.key === 'Enter') {
+  const rows = $("#results").children;
+  if (!ui.query.trim() || !rows.length) return;
+
+  if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+    ev.preventDefault();
+    const delta = ev.key === "ArrowDown" ? 1 : -1;
+    ui.activeResult = (ui.activeResult + delta + rows.length) % rows.length;
+    highlightResults();
+    rows[ui.activeResult].scrollIntoView({ block: "nearest" });
+    return;
+  }
+  if (ev.key === "Enter") {
     ev.preventDefault();
     const job = matches(ui.query)[ui.activeResult];
     // Enter runs the highlighted result, starred or not. Shift+Enter opens its
@@ -421,24 +529,32 @@ function onSearchKey(ev) {
 }
 
 async function toggleStar(job) {
-  if (starred.some(p => p.id === job.id)) {
+  if (starred.some((p) => p.id === job.id)) {
     starred = await store.unstar(job.id);
     delete paramValues[job.id];
     if (ui.openId === job.id) ui.openId = null;
   } else {
     // Star immediately so the click feels instant, then fill in the parameters.
     starred = await store.star({
-      id: job.id, url: job.url, name: job.name,
-      fullName: job.fullName, folder: job.fullName,
-      params: [], lastRunAt: job.lastBuildAt ?? null
+      id: job.id,
+      url: job.url,
+      name: job.name,
+      fullName: job.fullName,
+      folder: job.fullName,
+      params: [],
+      lastRunAt: job.lastBuildAt ?? null,
     });
     renderResults();
     renderStarred();
     try {
       const meta = await jenkins.getJobMeta(job.url, config);
       starred = await store.star({
-        id: job.id, name: meta.name, fullName: meta.fullName || job.fullName,
-        folder: meta.fullName || job.fullName, params: meta.params, lastRunAt: meta.lastBuildAt
+        id: job.id,
+        name: meta.name,
+        fullName: meta.fullName || job.fullName,
+        folder: meta.fullName || job.fullName,
+        params: meta.params,
+        lastRunAt: meta.lastBuildAt,
       });
     } catch (err) {
       ui.errors.set(job.id, err.message);
@@ -453,7 +569,7 @@ async function toggleStar(job) {
 /* ---------- activity ---------- */
 
 function renderActivity() {
-  const host = clear($('#activity'));
+  const host = clear($("#activity"));
 
   // With nothing starred there is nothing that could have been triggered, so the
   // empty box would just stack a second empty state above the starred one.
@@ -461,11 +577,16 @@ function renderActivity() {
   if (host.hidden) return;
 
   if (!runs.length) {
-    host.append(el('div', { class: 'empty-box', textContent: 'Nothing triggered from here yet.' }));
+    host.append(
+      el("div", {
+        class: "empty-box",
+        textContent: "Nothing triggered from here yet.",
+      }),
+    );
     return;
   }
 
-  const list = el('div', { class: 'runs' });
+  const list = el("div", { class: "runs" });
   for (const run of runs) list.append(runCard(run));
   host.append(list);
 }
@@ -474,72 +595,110 @@ function runCard(run) {
   const active = store.isActive(run);
   // Queued gets its own dot rather than sharing the running one: the dot is now
   // the only thing carrying status, and "waiting" is not "working".
-  const dotClass = run.status === 'QUEUED' ? 'queued' : active ? 'active' : run.status;
-  const dot = el('div', { class: `run-dot ${dotClass}`, title: statusLabel(run) });
+  const dotClass =
+    run.status === "QUEUED" ? "queued" : active ? "active" : run.status;
+  const dot = el("div", {
+    class: `run-dot ${dotClass}`,
+    title: statusLabel(run),
+  });
 
   const buttons = [];
   if (active && run.url) {
-    buttons.push(el('button', {
-      class: 'abort-btn', textContent: 'Abort',
-      onclick: e => abortRun(run, e.currentTarget)
-    }));
+    buttons.push(
+      el("button", {
+        class: "abort-btn",
+        textContent: "Abort",
+        onclick: (e) => abortRun(run, e.currentTarget),
+      }),
+    );
   }
   if (run.url) {
-    buttons.push(el('button', {
-      class: 'run-icon-btn', title: 'Open this build in a new tab',
-      onclick: () => chrome.tabs.create({ url: run.url })
-    }, icon('eye', { size: 13 })));
+    buttons.push(
+      el(
+        "button",
+        {
+          class: "run-icon-btn",
+          title: "Open this build in a new tab",
+          onclick: () => chrome.tabs.create({ url: run.url }),
+        },
+        icon("eye", { size: 13 }),
+      ),
+    );
   }
   if (!active && run.jobUrl) {
     // A replay is still a trigger, so it answers to the same guard.
-    const held = whyBlocked({ id: run.jobId, fullName: run.fullName, name: run.name });
-    buttons.push(el('button', {
-      class: 'run-icon-btn',
-      title: held
-        ? `Cannot be triggered — ${held}.`
-        : 'Run again with these same parameters',
-      disabled: Boolean(held) || ui.busy.has(run.id),
-      onclick: () => rerun(run)
-    }, icon('rotate-cw', { size: 13 })));
+    const held = whyBlocked({
+      id: run.jobId,
+      fullName: run.fullName,
+      name: run.name,
+    });
+    buttons.push(
+      el(
+        "button",
+        {
+          class: "run-icon-btn",
+          title: held
+            ? `Cannot be triggered — ${held}.`
+            : "Run again with these same parameters",
+          disabled: Boolean(held) || ui.busy.has(run.id),
+          onclick: () => rerun(run),
+        },
+        icon("rotate-cw", { size: 13 }),
+      ),
+    );
   }
   if (!active) {
-    buttons.push(el('button', {
-      class: 'run-icon-btn', title: 'Dismiss',
-      onclick: async () => { runs = await store.dismissRun(run.id); renderActivity(); renderFooter(); }
-    }, icon('x', { size: 12 })));
+    buttons.push(
+      el(
+        "button",
+        {
+          class: "run-icon-btn",
+          title: "Dismiss",
+          onclick: async () => {
+            runs = await store.dismissRun(run.id);
+            renderActivity();
+            renderFooter();
+          },
+        },
+        icon("x", { size: 12 }),
+      ),
+    );
   }
 
-  return el('div', { class: 'run', dataset: { runId: run.id } }, [
+  return el("div", { class: "run", dataset: { runId: run.id } }, [
     dot,
-    el('div', { class: 'run-text' }, [
-      el('div', { class: 'run-head' }, [
-        el('span', {
-          class: 'run-name',
+    el("div", { class: "run-text" }, [
+      el("div", { class: "run-head" }, [
+        el("span", {
+          class: "run-name",
           textContent: qualifiedName(run.fullName, run.name),
-          title: run.fullName || run.name
+          title: run.fullName || run.name,
         }),
         buildLabel(run)
-          ? el('span', {
-              class: 'run-build',
+          ? el("span", {
+              class: "run-build",
               textContent: buildLabel(run),
-              title: run.build ? `Build #${run.build}` : ''
+              title: run.build ? `Build #${run.build}` : "",
             })
           : null,
-        el('span', { class: 'run-time', textContent: runTime(run) })
+        el("span", { class: "run-time", textContent: runTime(run) }),
       ]),
       // A failed re-run has no parameter panel to report into, so it reports on
       // the card it was launched from.
       ui.errors.has(run.id)
-        ? el('div', { class: 'run-error', textContent: ui.errors.get(run.id) })
-        : run.status === 'ERROR'
-          ? el('div', { class: 'run-error', textContent: run.error || 'Failed to start' })
-          : paramsLine(run)
+        ? el("div", { class: "run-error", textContent: ui.errors.get(run.id) })
+        : run.status === "ERROR"
+          ? el("div", {
+              class: "run-error",
+              textContent: run.error || "Failed to start",
+            })
+          : paramsLine(run),
     ]),
     // Grouped rather than spread into the row: the row's 10px gap is the spacing
     // between name, values and controls, which is too loose between the controls
     // themselves. Dropped entirely when there are none, so an empty group cannot
     // add a gap of its own.
-    buttons.length ? el('div', { class: 'run-actions' }, buttons) : null
+    buttons.length ? el("div", { class: "run-actions" }, buttons) : null,
   ]);
 }
 
@@ -550,30 +709,33 @@ function runCard(run) {
 // Checkboxes are stored as real booleans, so their type is enough to leave them
 // out; a row full of `false` says nothing about what this build was.
 function paramsLine(run) {
-  const kept = Object.entries(run.params || {})
-    .filter(([, v]) => typeof v !== 'boolean' && String(v).trim() !== '');
+  const kept = Object.entries(run.params || {}).filter(
+    ([, v]) => typeof v !== "boolean" && String(v).trim() !== "",
+  );
   if (!kept.length) return null;
-  return el('div', {
-    class: 'run-params',
-    textContent: kept.map(([, v]) => v).join(', '),
-    title: kept.map(([k, v]) => `${k}=${v}`).join('\n')
+  return el("div", {
+    class: "run-params",
+    textContent: kept.map(([, v]) => v).join(", "),
+    title: kept.map(([k, v]) => `${k}=${v}`).join("\n"),
   });
 }
 
 // Time only. The dot carries the status, so repeating RUNNING or SUCCESS here
 // just spends a line saying what the colour already said.
 function runTime(run) {
-  if (run.status === 'QUEUED') return elapsed(run.startedAt);
-  if (run.status === 'RUNNING') return elapsed(run.buildStartedAt || run.startedAt);
+  if (run.status === "QUEUED") return elapsed(run.startedAt);
+  if (run.status === "RUNNING")
+    return elapsed(run.buildStartedAt || run.startedAt);
   return `${ago(run.finishedAt || run.startedAt)} ago`;
 }
 
 // The word still exists for the dot's tooltip, and for queued, where `why`
 // explains a wait the colour cannot.
 function statusLabel(run) {
-  if (run.status === 'QUEUED') return run.why ? `Queued — ${run.why}` : 'Queued';
-  if (run.status === 'RUNNING') return 'Running';
-  if (run.status === 'ERROR') return run.error || 'Failed to start';
+  if (run.status === "QUEUED")
+    return run.why ? `Queued — ${run.why}` : "Queued";
+  if (run.status === "RUNNING") return "Running";
+  if (run.status === "ERROR") return run.error || "Failed to start";
   return run.status;
 }
 
@@ -582,19 +744,24 @@ function statusLabel(run) {
 function tickElapsed() {
   for (const run of runs) {
     if (!store.isActive(run)) continue;
-    const row = document.querySelector(`.run[data-run-id="${CSS.escape(run.id)}"]`);
+    const row = document.querySelector(
+      `.run[data-run-id="${CSS.escape(run.id)}"]`,
+    );
     if (!row) continue;
-    row.querySelector('.run-time').textContent = runTime(run);
-    row.querySelector('.run-dot').title = statusLabel(run);
+    row.querySelector(".run-time").textContent = runTime(run);
+    row.querySelector(".run-dot").title = statusLabel(run);
   }
 }
 
 async function abortRun(run, btn) {
   btn.disabled = true;
-  btn.textContent = 'Aborting…';
+  btn.textContent = "Aborting…";
   try {
     await jenkins.abortBuild(run.url, config);
-    await store.updateRun(run.id, { status: 'ABORTED', finishedAt: Date.now() });
+    await store.updateRun(run.id, {
+      status: "ABORTED",
+      finishedAt: Date.now(),
+    });
   } catch (err) {
     await store.updateRun(run.id, { error: err.message });
   }
@@ -606,9 +773,15 @@ async function abortRun(run, btn) {
 /* ---------- starred ---------- */
 
 function renderStarred() {
-  const host = clear($('#starred'));
+  const host = clear($("#starred"));
   if (!starred.length) {
-    host.append(el('div', { class: 'empty-box', textContent: 'No pipelines starred yet. Search above, or add one by URL.' }));
+    host.append(
+      el("div", {
+        class: "empty-box",
+        textContent:
+          "No pipelines starred yet. Search above, or add one by URL.",
+      }),
+    );
     return;
   }
   for (const p of starred) host.append(pipelineCard(p));
@@ -619,72 +792,107 @@ function pipelineCard(p) {
   // Only the render that follows the click animates. Every other render while
   // the card is open, a poll landing for instance, rebuilds it already expanded.
   const opening = open && ui.justOpened === p.id;
-  const card = el('div', {
-    class: `card${open && !opening ? ' open' : ''}`,
-    dataset: { id: p.id }
+  const card = el("div", {
+    class: `card${open && !opening ? " open" : ""}`,
+    dataset: { id: p.id },
   });
 
-  card.addEventListener('dragstart', ev => {
+  card.addEventListener("dragstart", (ev) => {
     ui.dragId = p.id;
-    ev.dataTransfer.effectAllowed = 'move';
-    card.classList.add('dragging');
+    ev.dataTransfer.effectAllowed = "move";
+    card.classList.add("dragging");
   });
-  card.addEventListener('dragover', ev => {
+  card.addEventListener("dragover", (ev) => {
     ev.preventDefault();
     if (!ui.dragId || ui.dragId === p.id) return;
-    const host = $('#starred');
-    const dragged = host.querySelector(`.card[data-id="${CSS.escape(ui.dragId)}"]`);
+    const host = $("#starred");
+    const dragged = host.querySelector(
+      `.card[data-id="${CSS.escape(ui.dragId)}"]`,
+    );
     if (!dragged) return;
-    const after = card.compareDocumentPosition(dragged) & Node.DOCUMENT_POSITION_PRECEDING;
+    const after =
+      card.compareDocumentPosition(dragged) & Node.DOCUMENT_POSITION_PRECEDING;
     host.insertBefore(dragged, after ? card.nextSibling : card);
   });
-  card.addEventListener('dragend', () => { card.draggable = false; persistOrder(); });
-
-  const reason = whyBlocked(p);
-  const runBtn = el('button', {
-    class: `run-btn${reason ? ' held' : ''}`,
-    textContent: reason ? 'Open' : ui.busy.has(p.id) ? 'Starting…' : 'Run',
-    disabled: !reason && ui.busy.has(p.id),
-    title: reason ? `Cannot be triggered — ${reason}. Opens the job in Jenkins.` : '',
-    onclick: e => { e.stopPropagation(); reason ? openInJenkins(p) : triggerPipeline(p); }
+  card.addEventListener("dragend", () => {
+    card.draggable = false;
+    persistOrder();
   });
 
-  card.append(el('div', { class: 'card-row' }, [
-    el('div', {
-      class: 'grip', title: 'Drag to reorder',
-      onmousedown: () => { card.draggable = true; },
-      onmouseup: () => { card.draggable = false; }
-    }, icon('grip', { size: 14 })),
-    el('div', {
-      class: 'card-main',
-      onclick: () => {
-        if (!open) { ui.openId = p.id; ui.justOpened = p.id; renderStarred(); return; }
-        ui.openId = null;
-        collapse(card, renderStarred);
-      }
-    }, [
-      el('div', { class: 'card-title' }, [
-        el('span', {
-          class: 'card-name',
-          textContent: qualifiedName(p.fullName, p.name),
-          title: p.fullName || p.name
-        }),
-        // One chevron rotated by CSS rather than two swapped: a swap cannot animate.
-        el('span', { class: 'caret' }, icon('chevron-right', { size: 12 })),
-        // Pushed to the far end by .title-tools, so the caret stays attached to
-        // the name and the two toggles read as one group.
-        el('div', { class: 'title-tools' }, [
-          bellButton(p, renderStarred),
-          lockButton(p, renderStarred)
-        ])
-      ]),
-      el('div', { class: 'card-summary', textContent: summaryFor(p) })
+  const reason = whyBlocked(p);
+  const runBtn = el("button", {
+    class: `run-btn${reason ? " held" : ""}`,
+    textContent: reason ? "Open" : ui.busy.has(p.id) ? "Starting…" : "Run",
+    disabled: !reason && ui.busy.has(p.id),
+    title: reason
+      ? `Cannot be triggered — ${reason}. Opens the job in Jenkins.`
+      : "",
+    onclick: (e) => {
+      e.stopPropagation();
+      reason ? openInJenkins(p) : triggerPipeline(p);
+    },
+  });
+
+  card.append(
+    el("div", { class: "card-row" }, [
+      el(
+        "div",
+        {
+          class: "grip",
+          title: "Drag to reorder",
+          onmousedown: () => {
+            card.draggable = true;
+          },
+          onmouseup: () => {
+            card.draggable = false;
+          },
+        },
+        icon("grip", { size: 14 }),
+      ),
+      el(
+        "div",
+        {
+          class: "card-main",
+          onclick: () => {
+            if (!open) {
+              ui.openId = p.id;
+              ui.justOpened = p.id;
+              renderStarred();
+              return;
+            }
+            ui.openId = null;
+            collapse(card, renderStarred);
+          },
+        },
+        [
+          el("div", { class: "card-title" }, [
+            el("span", {
+              class: "card-name",
+              textContent: qualifiedName(p.fullName, p.name),
+              title: p.fullName || p.name,
+            }),
+            // One chevron rotated by CSS rather than two swapped: a swap cannot animate.
+            el("span", { class: "caret" }, icon("chevron-right", { size: 12 })),
+            // Pushed to the far end by .title-tools, so the caret stays attached to
+            // the name and the two toggles read as one group.
+            el("div", { class: "title-tools" }, [
+              bellButton(p, renderStarred),
+              lockButton(p, renderStarred),
+            ]),
+          ]),
+          el("div", { class: "card-summary", textContent: summaryFor(p) }),
+        ],
+      ),
+      runBtn,
     ]),
-    runBtn
-  ]));
+  );
 
   if (open) {
-    const wrap = el('div', { class: `panel-wrap${opening ? '' : ' open'}` }, paramPanel(p));
+    const wrap = el(
+      "div",
+      { class: `panel-wrap${opening ? "" : " open"}` },
+      paramPanel(p),
+    );
     card.append(wrap);
     if (opening) reveal(card, wrap);
   }
@@ -692,10 +900,12 @@ function pipelineCard(p) {
 }
 
 async function persistOrder() {
-  const host = $('#starred');
-  host.querySelectorAll('.card.dragging').forEach(n => n.classList.remove('dragging'));
+  const host = $("#starred");
+  host
+    .querySelectorAll(".card.dragging")
+    .forEach((n) => n.classList.remove("dragging"));
   ui.dragId = null;
-  const ids = [...host.querySelectorAll('.card')].map(n => n.dataset.id);
+  const ids = [...host.querySelectorAll(".card")].map((n) => n.dataset.id);
   if (ids.length) starred = await store.setOrder(ids);
 }
 
@@ -710,26 +920,30 @@ function valuesFor(p) {
 }
 
 function defaultFor(d) {
-  if (d.type === 'BooleanParameterDefinition') return d.default === true || d.default === 'true';
-  if (d.choices?.length && (d.default === '' || d.default == null)) return d.choices[0];
-  return d.default ?? '';
+  if (d.type === "BooleanParameterDefinition")
+    return d.default === true || d.default === "true";
+  if (d.choices?.length && (d.default === "" || d.default == null))
+    return d.choices[0];
+  return d.default ?? "";
 }
 
 function summaryFor(p) {
-  if (!p.params?.length) return 'no parameters';
+  if (!p.params?.length) return "no parameters";
   const vals = valuesFor(p);
   const parts = p.params
-    .filter(d => d.type !== 'PasswordParameterDefinition')
-    .map(d => `${d.name}=${vals[d.name]}`);
-  const head = parts.slice(0, 2).join(', ');
-  return head + (parts.length > 2 ? `  +${parts.length - 2}` : '');
+    .filter((d) => d.type !== "PasswordParameterDefinition")
+    .map((d) => `${d.name}=${vals[d.name]}`);
+  const head = parts.slice(0, 2).join(", ");
+  return head + (parts.length > 2 ? `  +${parts.length - 2}` : "");
 }
 
 /* ---------- expanding panels ---------- */
 
 // Matches --motion in popup.css. Only used to know when a collapsed panel can be
 // removed from the DOM, so it errs on the side of the CSS finishing first.
-const MOTION_MS = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 190;
+const MOTION_MS = matchMedia("(prefers-reduced-motion: reduce)").matches
+  ? 0
+  : 190;
 
 // Two frames, not one. The first lets the collapsed state land in layout; the
 // second transitions away from it. With a single frame the browser is free to
@@ -740,123 +954,176 @@ const MOTION_MS = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1
 // result's parameter definitions arrive a tick after the panel is opened. Left
 // set, the render that replaces it animates instead.
 function reveal(card, wrap) {
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    if (!wrap.isConnected) return;
-    ui.justOpened = null;
-    card.classList.add('open');
-    wrap.classList.add('open');
-  }));
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      if (!wrap.isConnected) return;
+      ui.justOpened = null;
+      card.classList.add("open");
+      wrap.classList.add("open");
+    }),
+  );
 }
 
 // The card outlives its own collapse: the state is already closed, but the panel
 // stays in the DOM until the height animation has run, then the caller re-renders
 // over it. A re-render arriving mid-animation cuts it short rather than breaking.
 function collapse(card, done) {
-  const wrap = card?.querySelector('.panel-wrap');
-  card?.classList.remove('open');
-  if (!wrap) { done(); return; }
-  wrap.classList.remove('open');
+  const wrap = card?.querySelector(".panel-wrap");
+  card?.classList.remove("open");
+  if (!wrap) {
+    done();
+    return;
+  }
+  wrap.classList.remove("open");
   setTimeout(done, MOTION_MS);
 }
 
 function paramPanel(p, isStarred = true) {
-  const panel = el('div', { class: 'panel' });
+  const panel = el("div", { class: "panel" });
   const values = { ...valuesFor(p) };
   ui.drafts.set(p.id, values);
   const write = (key, v) => {
     values[key] = v;
-    const summary = panel.parentElement?.querySelector('.card-summary');
+    const summary = panel.parentElement?.querySelector(".card-summary");
     if (summary) summary.textContent = summaryFor(p);
   };
 
   for (const d of p.params || []) {
-    panel.append(paramField(d, values[d.name], v => write(d.name, v)));
+    panel.append(paramField(d, values[d.name], (v) => write(d.name, v)));
   }
 
   const reason = whyBlocked(p);
-  const trigger = el('button', {
-    class: `trigger-btn${reason ? ' held' : ''}`,
-    textContent: reason ? 'Open in Jenkins' : ui.busy.has(p.id) ? 'Starting…' : 'Trigger build',
+  const trigger = el("button", {
+    class: `trigger-btn${reason ? " held" : ""}`,
+    textContent: reason
+      ? "Open in Jenkins"
+      : ui.busy.has(p.id)
+        ? "Starting…"
+        : "Trigger build",
     disabled: !reason && ui.busy.has(p.id),
-    title: reason ? `Cannot be triggered — ${reason}.` : '',
-    onclick: () => reason ? openInJenkins(p) : triggerPipeline(p)
+    title: reason ? `Cannot be triggered — ${reason}.` : "",
+    onclick: () => (reason ? openInJenkins(p) : triggerPipeline(p)),
   });
-  const sync = el('button', {
-    class: 'outline-btn', title: 'Re-read parameters from Jenkins',
-    textContent: 'Sync params',
-    onclick: e => syncParams(p, e.currentTarget)
+  const sync = el("button", {
+    class: "outline-btn",
+    title: "Re-read parameters from Jenkins",
+    textContent: "Sync params",
+    onclick: (e) => syncParams(p, e.currentTarget),
   });
-  const starToggle = el('button', {
-    class: `unstar-btn${isStarred ? '' : ' off'}`,
-    title: isStarred ? 'Unstar' : 'Star',
-    onclick: () => toggleStar({
-      id: p.id, url: p.url, name: p.name,
-      fullName: p.fullName, lastBuildAt: p.lastRunAt
-    })
-  }, icon('star', { size: 13, fill: isStarred }));
+  const starToggle = el(
+    "button",
+    {
+      class: `unstar-btn${isStarred ? "" : " off"}`,
+      title: isStarred ? "Unstar" : "Star",
+      onclick: () =>
+        toggleStar({
+          id: p.id,
+          url: p.url,
+          name: p.name,
+          fullName: p.fullName,
+          lastBuildAt: p.lastRunAt,
+        }),
+    },
+    icon("star", { size: 13, fill: isStarred }),
+  );
 
-  panel.append(el('div', { class: 'panel-actions' }, [trigger, sync, starToggle]));
+  panel.append(
+    el("div", { class: "panel-actions" }, [trigger, sync, starToggle]),
+  );
 
   const err = ui.errors.get(p.id);
-  if (err) panel.append(el('div', { class: 'field-error', textContent: err }));
+  if (err) panel.append(el("div", { class: "field-error", textContent: err }));
 
-  panel.append(el('div', { class: 'panel-footer' }, [
-    el('a', { href: p.url, target: '_blank', rel: 'noreferrer' },
-      [document.createTextNode('open in Jenkins'), icon('external-link', { size: 11 })]),
-    el('span', { textContent: p.lastRunAt ? `last run ${ago(p.lastRunAt)} ago` : 'never run' })
-  ]));
+  panel.append(
+    el("div", { class: "panel-footer" }, [
+      el("a", { href: p.url, target: "_blank", rel: "noreferrer" }, [
+        document.createTextNode("open in Jenkins"),
+        icon("external-link", { size: 11 }),
+      ]),
+      el("span", {
+        textContent: p.lastRunAt
+          ? `last run ${ago(p.lastRunAt)} ago`
+          : "never run",
+      }),
+    ]),
+  );
 
   return panel;
 }
 
 function paramField(d, value, onWrite) {
-  if (d.type === 'BooleanParameterDefinition') {
-    const box = el('input', {
-      type: 'checkbox', checked: value === true || value === 'true',
-      onchange: e => onWrite(e.target.checked)
+  if (d.type === "BooleanParameterDefinition") {
+    const box = el("input", {
+      type: "checkbox",
+      checked: value === true || value === "true",
+      onchange: (e) => onWrite(e.target.checked),
     });
-    return el('label', { class: 'pbool' }, [box, el('span', { textContent: d.name })]);
+    return el("label", { class: "pbool" }, [
+      box,
+      el("span", { textContent: d.name }),
+    ]);
   }
 
-  const label = el('div', { class: 'plabel' }, [
-    el('span', { class: 'pkey', textContent: d.name }),
-    d.description ? el('span', { class: 'pdesc', textContent: stripHtml(d.description) }) : null
+  const label = el("div", { class: "plabel" }, [
+    el("span", { class: "pkey", textContent: d.name }),
+    d.description
+      ? el("span", { class: "pdesc", textContent: stripHtml(d.description) })
+      : null,
   ]);
 
   let input;
   if (d.choices?.length) {
-    input = el('select', { onchange: e => onWrite(e.target.value) });
-    for (const c of d.choices) input.append(el('option', { value: c, textContent: c, selected: c === value }));
-  } else if (d.type === 'PasswordParameterDefinition') {
-    input = el('input', { type: 'password', value: '', oninput: e => onWrite(e.target.value) });
+    input = el("select", { onchange: (e) => onWrite(e.target.value) });
+    for (const c of d.choices)
+      input.append(
+        el("option", { value: c, textContent: c, selected: c === value }),
+      );
+  } else if (d.type === "PasswordParameterDefinition") {
+    input = el("input", {
+      type: "password",
+      value: "",
+      oninput: (e) => onWrite(e.target.value),
+    });
   } else {
-    input = el('input', { type: 'text', value: value ?? '', oninput: e => onWrite(e.target.value) });
+    input = el("input", {
+      type: "text",
+      value: value ?? "",
+      oninput: (e) => onWrite(e.target.value),
+    });
   }
 
-  return el('div', { class: 'pfield' }, [label, input]);
+  return el("div", { class: "pfield" }, [label, input]);
 }
 
-const stripHtml = s => s.replace(/<[^>]*>/g, '').trim();
+const stripHtml = (s) => s.replace(/<[^>]*>/g, "").trim();
 
 async function syncParams(p, btn) {
   const original = btn.textContent;
   btn.disabled = true;
-  btn.textContent = 'Syncing…';
+  btn.textContent = "Syncing…";
   try {
     const meta = await jenkins.getJobMeta(p.url, config);
     // Keep the values the user already set wherever the key survived.
     const kept = {};
     const current = valuesFor(p);
     for (const d of meta.params) {
-      kept[d.name] = current[d.name] !== undefined ? current[d.name] : defaultFor(d);
+      kept[d.name] =
+        current[d.name] !== undefined ? current[d.name] : defaultFor(d);
     }
     ui.drafts.set(p.id, kept);
     await store.setParamValues(p.id, stripSecrets(meta.params, kept));
     paramValues[p.id] = stripSecrets(meta.params, kept);
-    starred = await store.star({ id: p.id, name: meta.name, params: meta.params, lastRunAt: meta.lastBuildAt });
+    starred = await store.star({
+      id: p.id,
+      name: meta.name,
+      params: meta.params,
+      lastRunAt: meta.lastBuildAt,
+    });
     ui.errors.delete(p.id);
-    btn.textContent = 'Synced ✓';
-    setTimeout(() => { renderStarred(); }, 1400);
+    btn.textContent = "Synced ✓";
+    setTimeout(() => {
+      renderStarred();
+    }, 1400);
   } catch (err) {
     ui.errors.set(p.id, err.message);
     btn.disabled = false;
@@ -867,35 +1134,45 @@ async function syncParams(p, btn) {
 
 /* ---------- subscriptions ---------- */
 
-const isSubscribed = id => subscribed.some(p => p.id === id);
+const isSubscribed = (id) => subscribed.some((p) => p.id === id);
 
 // Sits beside the padlock, so the two things that change what a pipeline does
 // without opening it are in one place. Filled means subscribed.
 function bellButton(p, rerender) {
   const on = isSubscribed(p.id);
   const muted = on && !anyWanted(config?.notifyOn);
-  return el('button', {
-    class: `bell-btn${on ? ' on' : ''}`,
-    title: muted
-      ? 'Subscribed, but every notification kind is switched off in settings.'
-      : on
-        ? 'Subscribed. Click to stop being notified about this pipeline.'
-        : 'Notify me whenever this pipeline runs, whoever starts it.',
-    onclick: async e => {
-      e.stopPropagation();
-      subscribed = on
-        ? await store.unsubscribe(p.id)
-        : await store.subscribe({ id: p.id, url: p.url, name: p.name, fullName: p.fullName });
-      rerender();
-      renderFooter();
-    }
-  }, icon('bell', { size: 12, fill: on }));
+  return el(
+    "button",
+    {
+      class: `bell-btn${on ? " on" : ""}`,
+      title: muted
+        ? "Subscribed, but every notification kind is switched off in settings."
+        : on
+          ? "Subscribed. Click to stop being notified about this pipeline."
+          : "Notify me whenever this pipeline runs, whoever starts it.",
+      onclick: async (e) => {
+        e.stopPropagation();
+        subscribed = on
+          ? await store.unsubscribe(p.id)
+          : await store.subscribe({
+              id: p.id,
+              url: p.url,
+              name: p.name,
+              fullName: p.fullName,
+            });
+        rerender();
+        renderFooter();
+      },
+    },
+    icon("bell", { size: 12, fill: on }),
+  );
 }
 
 /* ---------- blocking ---------- */
 
 // Null when the pipeline may be triggered, otherwise the reason, ready to print.
-const whyBlocked = p => blockReason(p, { blocked, patterns: config?.denyPatterns });
+const whyBlocked = (p) =>
+  blockReason(p, { blocked, patterns: config?.denyPatterns });
 
 // The lock beside a pipeline's name. Always shown on a starred card, so the
 // guard is discoverable and its state readable without expanding anything.
@@ -904,20 +1181,24 @@ const whyBlocked = p => blockReason(p, { blocked, patterns: config?.denyPatterns
 function lockButton(p, rerender) {
   const reason = whyBlocked(p);
   const fromPattern = isPatternBlock(reason);
-  return el('button', {
-    class: `lock-btn${reason ? ' on' : ''}`,
-    disabled: fromPattern,
-    title: fromPattern
-      ? `Cannot be triggered — ${reason}. Edit the pattern in settings to lift it.`
-      : reason
-        ? 'Blocked. Click to allow triggering again.'
-        : 'Allow triggering. Click to block it.',
-    onclick: async e => {
-      e.stopPropagation();
-      blocked = await store.setBlocked(p.id, !reason);
-      rerender();
-    }
-  }, icon(reason ? 'lock' : 'lock-open', { size: 12 }));
+  return el(
+    "button",
+    {
+      class: `lock-btn${reason ? " on" : ""}`,
+      disabled: fromPattern,
+      title: fromPattern
+        ? `Cannot be triggered — ${reason}. Edit the pattern in settings to lift it.`
+        : reason
+          ? "Blocked. Click to allow triggering again."
+          : "Allow triggering. Click to block it.",
+      onclick: async (e) => {
+        e.stopPropagation();
+        blocked = await store.setBlocked(p.id, !reason);
+        rerender();
+      },
+    },
+    icon(reason ? "lock" : "lock-open", { size: 12 }),
+  );
 }
 
 // What the Run button becomes when a pipeline is blocked. The point of the
@@ -931,7 +1212,8 @@ function openInJenkins(p) {
 
 function stripSecrets(defs, values) {
   const out = { ...values };
-  for (const d of defs || []) if (d.type === 'PasswordParameterDefinition') delete out[d.name];
+  for (const d of defs || [])
+    if (d.type === "PasswordParameterDefinition") delete out[d.name];
   return out;
 }
 
@@ -948,18 +1230,26 @@ async function rerun(run) {
   ui.errors.delete(run.id);
   renderActivity();
 
-  const res = await chrome.runtime.sendMessage({
-    type: 'trigger',
-    pipelineId: run.jobId,
-    params: run.params || {},
-    remember: false,
-    // Sent so a run whose pipeline was never starred, or has since been
-    // unstarred, can still be replayed.
-    job: { id: run.jobId, url: run.jobUrl, name: run.name, fullName: run.fullName }
-  }).catch(err => ({ ok: false, error: err.message }));
+  const res = await chrome.runtime
+    .sendMessage({
+      type: "trigger",
+      pipelineId: run.jobId,
+      params: run.params || {},
+      remember: false,
+      // Sent so a run whose pipeline was never starred, or has since been
+      // unstarred, can still be replayed.
+      job: {
+        id: run.jobId,
+        url: run.jobUrl,
+        name: run.name,
+        fullName: run.fullName,
+      },
+    })
+    .catch((err) => ({ ok: false, error: err.message }));
 
   ui.busy.delete(run.id);
-  if (!res?.ok) ui.errors.set(run.id, res?.error || 'Could not start it again.');
+  if (!res?.ok)
+    ui.errors.set(run.id, res?.error || "Could not start it again.");
 
   runs = await store.getRuns();
   renderActivity();
@@ -985,20 +1275,23 @@ async function triggerPipeline(p) {
   const params = valuesFor(p);
   const persist = stripSecrets(p.params, params);
 
-  const res = await chrome.runtime.sendMessage({
-    type: 'trigger',
-    pipelineId: p.id,
-    params,
-    persist,
-    // Sent so the worker can run a pipeline that was never starred.
-    job: { id: p.id, url: p.url, name: p.name, fullName: p.fullName }
-  }).catch(err => ({ ok: false, error: err.message }));
+  const res = await chrome.runtime
+    .sendMessage({
+      type: "trigger",
+      pipelineId: p.id,
+      params,
+      persist,
+      // Sent so the worker can run a pipeline that was never starred.
+      job: { id: p.id, url: p.url, name: p.name, fullName: p.fullName },
+    })
+    .catch((err) => ({ ok: false, error: err.message }));
 
   ui.busy.delete(p.id);
 
   if (!res?.ok) {
-    ui.errors.set(p.id, res?.error || 'Trigger failed.');
-    if (fromSearch) ui.openResult = p.id; else ui.openId = p.id;
+    ui.errors.set(p.id, res?.error || "Trigger failed.");
+    if (fromSearch) ui.openResult = p.id;
+    else ui.openId = p.id;
     runs = await store.getRuns();
     renderAll();
     return;
@@ -1021,19 +1314,27 @@ async function triggerPipeline(p) {
 
 function renderFooter() {
   const running = runs.filter(store.isActive).length;
-  const line = clear($('#status-line'));
+  const line = clear($("#status-line"));
   line.append(document.createTextNode(`${starred.length} starred`));
 
   // The one count worth clicking. A subscription is invisible unless you happen
   // to be looking at the pipeline it is on, so this is the only place the whole
   // set can be seen and unpicked.
   if (subscribed.length) {
-    line.append(document.createTextNode(' · '), el('button', {
-      class: `count-btn${ui.subsOpen ? ' on' : ''}`,
-      textContent: `${subscribed.length} subscribed`,
-      title: ui.subsOpen ? 'Hide the list' : 'Show everything you are subscribed to',
-      onclick: () => { ui.subsOpen = !ui.subsOpen; renderFooter(); }
-    }));
+    line.append(
+      document.createTextNode(" · "),
+      el("button", {
+        class: `count-btn${ui.subsOpen ? " on" : ""}`,
+        textContent: `${subscribed.length} subscribed`,
+        title: ui.subsOpen
+          ? "Hide the list"
+          : "Show everything you are subscribed to",
+        onclick: () => {
+          ui.subsOpen = !ui.subsOpen;
+          renderFooter();
+        },
+      }),
+    );
   } else {
     ui.subsOpen = false;
   }
@@ -1041,72 +1342,100 @@ function renderFooter() {
 
   renderSubsList();
 
-  const toggle = clear($('#add-toggle'));
-  toggle.append(icon(ui.addOpen ? 'minus' : 'plus', { size: 12 }),
-    document.createTextNode(ui.addOpen ? 'Hide URL field' : 'Add pipeline by URL'));
-  $('#add-row').hidden = !ui.addOpen;
+  const toggle = clear($("#add-toggle"));
+  toggle.append(
+    icon(ui.addOpen ? "minus" : "plus", { size: 12 }),
+    document.createTextNode(
+      ui.addOpen ? "Hide URL field" : "Add pipeline by URL",
+    ),
+  );
+  $("#add-row").hidden = !ui.addOpen;
 }
 
 function renderSubsList() {
-  const host = clear($('#subs-list'));
+  const host = clear($("#subs-list"));
   host.hidden = !ui.subsOpen;
   if (!ui.subsOpen) return;
 
   for (const p of subscribed) {
-    host.append(el('div', { class: 'subs-row' }, [
-      el('span', {
-        class: 'subs-name',
-        textContent: qualifiedName(p.fullName, p.name),
-        title: p.fullName || p.name
-      }),
-      el('button', {
-        class: 'subs-open', title: 'Open this pipeline in a new tab',
-        onclick: () => chrome.tabs.create({ url: p.url })
-      }, icon('external-link', { size: 11 })),
-      el('button', {
-        class: 'subs-off', title: 'Stop being notified about this pipeline',
-        onclick: async () => {
-          subscribed = await store.unsubscribe(p.id);
-          renderStarred();
-          renderResults();
-          renderFooter();
-        }
-      }, icon('x', { size: 12 }))
-    ]));
+    host.append(
+      el("div", { class: "subs-row" }, [
+        el("span", {
+          class: "subs-name",
+          textContent: qualifiedName(p.fullName, p.name),
+          title: p.fullName || p.name,
+        }),
+        el(
+          "button",
+          {
+            class: "subs-open",
+            title: "Open this pipeline in a new tab",
+            onclick: () => chrome.tabs.create({ url: p.url }),
+          },
+          icon("external-link", { size: 11 }),
+        ),
+        el(
+          "button",
+          {
+            class: "subs-off",
+            title: "Stop being notified about this pipeline",
+            onclick: async () => {
+              subscribed = await store.unsubscribe(p.id);
+              renderStarred();
+              renderResults();
+              renderFooter();
+            },
+          },
+          icon("x", { size: 12 }),
+        ),
+      ]),
+    );
   }
 }
 
 function toggleAdd() {
   ui.addOpen = !ui.addOpen;
   renderFooter();
-  if (ui.addOpen) $('#add-url').focus();
-  else { $('#add-error').hidden = true; }
+  if (ui.addOpen) $("#add-url").focus();
+  else {
+    $("#add-error").hidden = true;
+  }
 }
 
 async function onAdd() {
-  const input = $('#add-url');
-  const btn = $('#add-btn');
-  const err = $('#add-error');
+  const input = $("#add-url");
+  const btn = $("#add-btn");
+  const err = $("#add-error");
   err.hidden = true;
   btn.disabled = true;
-  btn.textContent = '…';
+  btn.textContent = "…";
 
   try {
     const url = jenkins.normalizeJobUrl(input.value);
-    const granted = await chrome.permissions.request({ origins: [jenkins.originOf(url)] });
-    if (!granted) throw new Error('Permission for that host was declined.');
+    const granted = await chrome.permissions.request({
+      origins: [jenkins.originOf(url)],
+    });
+    if (!granted) throw new Error("Permission for that host was declined.");
 
-    if (!config.baseUrl) config = await store.saveConfig({ baseUrl: jenkins.rootOf(url) });
+    if (!config.baseUrl)
+      config = await store.saveConfig({ baseUrl: jenkins.rootOf(url) });
 
     const meta = await jenkins.getJobMeta(url, config);
-    if (meta.isFolder) throw new Error('That is a folder, not a runnable job. Open it and copy a job URL.');
+    if (meta.isFolder)
+      throw new Error(
+        "That is a folder, not a runnable job. Open it and copy a job URL.",
+      );
 
     starred = await store.star({
-      id: url, url, name: meta.name,
-      fullName: meta.fullName, folder: meta.fullName,
-      params: meta.params, lastRunAt: meta.lastBuildAt
+      id: url,
+      url,
+      name: meta.name,
+      fullName: meta.fullName,
+      folder: meta.fullName,
+      params: meta.params,
+      lastRunAt: meta.lastBuildAt,
     });
-    input.value = '';
+    input.value = "";
     ui.addOpen = false;
     renderAll();
     refreshConnection();
@@ -1115,39 +1444,39 @@ async function onAdd() {
     err.hidden = false;
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Add';
+    btn.textContent = "Add";
   }
 }
 
 /* ---------- reacting to background writes ---------- */
 
 async function onStorageChanged(changes, area) {
-  if (area === 'local' && changes.runs) {
+  if (area === "local" && changes.runs) {
     runs = changes.runs.newValue || [];
     renderActivity();
     renderFooter();
   }
-  if (area === 'sync' && changes.starred) {
+  if (area === "sync" && changes.starred) {
     starred = changes.starred.newValue || [];
     renderStarred();
     renderActivity();
     renderFooter();
   }
-  if (area === 'sync' && changes.paramValues) {
+  if (area === "sync" && changes.paramValues) {
     paramValues = changes.paramValues.newValue || {};
   }
-  if (area === 'sync' && changes.subscriptions) {
+  if (area === "sync" && changes.subscriptions) {
     subscribed = changes.subscriptions.newValue || [];
     renderStarred();
     renderResults();
     renderFooter();
   }
-  if (area === 'sync' && changes.blocked) {
+  if (area === "sync" && changes.blocked) {
     blocked = changes.blocked.newValue || [];
     renderStarred();
     renderResults();
   }
-  if (area === 'sync' && changes.config) {
+  if (area === "sync" && changes.config) {
     config = await store.getConfig();
     renderHeader();
     // Deny patterns are config, and editing them in settings changes which

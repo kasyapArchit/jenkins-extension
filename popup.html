@@ -1,73 +1,89 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <link rel="stylesheet" href="popup.css">
-  <title>Jenkins Launcher</title>
-</head>
-<body>
-  <div class="shell">
-    <header class="hdr">
-      <div class="hdr-text">
-        <div class="hdr-title">Jenkins Launcher</div>
-        <div class="hdr-status">
-          <span id="conn-dot" class="conn-dot" title="Checking the controller…"></span>
-          <span id="conn-label" class="conn-label">Checking…</span>
-          <span id="conn-context" class="conn-context"></span>
-        </div>
-      </div>
-      <div class="hdr-actions">
-        <button id="refresh" class="icon-btn" title="Refresh"></button>
-        <button id="settings" class="icon-btn" title="Settings"></button>
-      </div>
-    </header>
-
-    <div class="search-wrap">
-      <div class="search">
-        <span class="search-icon" id="search-icon"></span>
-        <input id="q" type="text" placeholder="Search pipelines…" autocomplete="off" spellcheck="false">
-        <button id="q-clear" class="q-clear" title="Clear" hidden></button>
-      </div>
-    </div>
-
-    <div id="banner" class="banner" hidden></div>
-
-    <div id="body" class="body">
-      <section id="search-mode" class="results-wrap" hidden>
-        <div class="sec-head">
-          <span class="caps" id="results-label">ALL PIPELINES</span>
-          <span class="hint">&#8593;&#8595; to move &middot; &#9166; to run</span>
-        </div>
-        <div class="results" id="results"></div>
-        <div class="centered-note" id="results-empty" hidden></div>
-      </section>
-
-      <section id="browse-mode">
-        <div class="activity" id="activity"></div>
-        <div class="starred-wrap">
-          <div class="sec-head">
-            <span class="caps">STARRED</span>
-            <span class="hint">drag to reorder</span>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="popup.css" />
+    <title>Jenkins Launcher</title>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="hdr">
+        <div class="hdr-text">
+          <div class="hdr-title">Jenkins Launcher</div>
+          <div class="hdr-status">
+            <span
+              id="conn-dot"
+              class="conn-dot"
+              title="Checking the controller…"
+            ></span>
+            <span id="conn-label" class="conn-label">Checking…</span>
+            <span id="conn-context" class="conn-context"></span>
           </div>
-          <div class="cards" id="starred"></div>
         </div>
-      </section>
+        <div class="hdr-actions">
+          <button id="refresh" class="icon-btn" title="Refresh"></button>
+          <button id="settings" class="icon-btn" title="Settings"></button>
+        </div>
+      </header>
+
+      <div class="search-wrap">
+        <div class="search">
+          <span class="search-icon" id="search-icon"></span>
+          <input
+            id="q"
+            type="text"
+            placeholder="Search pipelines…"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button id="q-clear" class="q-clear" title="Clear" hidden></button>
+        </div>
+      </div>
+
+      <div id="banner" class="banner" hidden></div>
+
+      <div id="body" class="body">
+        <section id="search-mode" class="results-wrap" hidden>
+          <div class="sec-head">
+            <span class="caps" id="results-label">ALL PIPELINES</span>
+            <span class="hint"
+              >&#8593;&#8595; to move &middot; &#9166; to run</span
+            >
+          </div>
+          <div class="results" id="results"></div>
+          <div class="centered-note" id="results-empty" hidden></div>
+        </section>
+
+        <section id="browse-mode">
+          <div class="activity" id="activity"></div>
+          <div class="starred-wrap">
+            <div class="sec-head">
+              <span class="caps">STARRED</span>
+              <span class="hint">drag to reorder</span>
+            </div>
+            <div class="cards" id="starred"></div>
+          </div>
+        </section>
+      </div>
+
+      <footer class="ftr">
+        <div class="add-row" id="add-row" hidden>
+          <input
+            id="add-url"
+            type="url"
+            placeholder="https://jenkins/job/Folder/job/My-Job/"
+          />
+          <button id="add-btn">Add</button>
+        </div>
+        <div class="ftr-err" id="add-error" hidden></div>
+        <div class="subs-list" id="subs-list" hidden></div>
+        <div class="ftr-row">
+          <button id="add-toggle" class="linkish"></button>
+          <span id="status-line" class="ftr-status"></span>
+        </div>
+      </footer>
     </div>
 
-    <footer class="ftr">
-      <div class="add-row" id="add-row" hidden>
-        <input id="add-url" type="url" placeholder="https://jenkins/job/Folder/job/My-Job/">
-        <button id="add-btn">Add</button>
-      </div>
-      <div class="ftr-err" id="add-error" hidden></div>
-      <div class="subs-list" id="subs-list" hidden></div>
-      <div class="ftr-row">
-        <button id="add-toggle" class="linkish"></button>
-        <span id="status-line" class="ftr-status"></span>
-      </div>
-    </footer>
-  </div>
-
-  <script type="module" src="popup.js"></script>
-</body>
+    <script type="module" src="popup.js"></script>
+  </body>
 </html>

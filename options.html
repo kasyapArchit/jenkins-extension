@@ -1,147 +1,202 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>Jenkins Launcher settings</title>
-  <link rel="stylesheet" href="popup.css">
-  <link rel="stylesheet" href="options.css">
-</head>
-<body>
-  <div class="sheet">
-    <h1>Jenkins Launcher</h1>
-    <p class="lede">Point the extension at your Jenkins controller once, then star pipelines from the popup.
-      Everything below the connection saves as you change it.</p>
-
-    <fieldset>
-      <legend>CONNECTION</legend>
-      <div class="field">
-        <label for="baseUrl">Jenkins base URL</label>
-        <input id="baseUrl" type="url" class="mono" placeholder="https://jenkins.internal.example.com">
-        <div class="hint">No trailing job path. Include the context path if Jenkins sits behind a proxy, for example <code>https://ci.example.com/jenkins</code>.</div>
-      </div>
-      <div class="field">
-        <label for="authMode">Authentication</label>
-        <select id="authMode">
-          <option value="token">API token (recommended)</option>
-          <option value="cookie">Reuse my browser session</option>
-        </select>
-        <div class="hint">API token requests are exempt from Jenkins CSRF checks. Session mode needs you logged in to Jenkins in this browser and fetches a crumb per build.</div>
-      </div>
-      <div id="token-fields">
-        <div class="field">
-          <label for="userId">User ID</label>
-          <input id="userId" type="text" class="mono" autocomplete="off" placeholder="a.kumar">
-        </div>
-        <div class="field">
-          <label for="token">API token</label>
-          <input id="token" type="password" class="mono" autocomplete="off">
-          <div class="hint">Create one at <code>/me/security</code> on your Jenkins.</div>
-        </div>
-      </div>
-      <div class="actions">
-        <button id="save" class="primary">Save connection</button>
-        <button id="test" class="secondary">Test connection</button>
-        <span id="status"></span>
-      </div>
-    </fieldset>
-
-    <fieldset>
-      <legend>STATUS TRACKING</legend>
-      <div id="tracking-saved" class="hint autosave"></div>
-      <div class="field">
-        <label for="pollSeconds">Poll interval (seconds)</label>
-        <input id="pollSeconds" type="number" min="30" max="600" step="10">
-        <div class="hint">Chrome will not fire alarms faster than every 30 seconds. While the popup is open, elapsed times still tick every second.</div>
-      </div>
-      <div class="field inline">
-        <input id="notify" type="checkbox">
-        <label for="notify">Desktop notification when a build finishes</label>
-      </div>
-    </fieldset>
-
-    <fieldset>
-      <legend>SUBSCRIPTIONS</legend>
-      <div id="subs-saved" class="hint autosave"></div>
-      <p class="lede" style="margin-bottom:14px">
-        Subscribe to a pipeline from the bell in its parameter panel and you are notified
-        whenever it runs, whoever started it. These choose which moments are worth a
-        notification; at least one has to stay on.
+  <head>
+    <meta charset="utf-8" />
+    <title>Jenkins Launcher settings</title>
+    <link rel="stylesheet" href="popup.css" />
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <div class="sheet">
+      <h1>Jenkins Launcher</h1>
+      <p class="lede">
+        Point the extension at your Jenkins controller once, then star pipelines
+        from the popup. Everything below the connection saves as you change it.
       </p>
 
-      <div class="field inline"><input id="on-triggered" type="checkbox">
-        <label for="on-triggered">When a build starts</label></div>
-      <div class="field inline"><input id="on-deployed" type="checkbox">
-        <label for="on-deployed">When a build succeeds</label></div>
-      <div class="field inline"><input id="on-failed" type="checkbox">
-        <label for="on-failed">When a build fails</label></div>
+      <fieldset>
+        <legend>CONNECTION</legend>
+        <div class="field">
+          <label for="baseUrl">Jenkins base URL</label>
+          <input
+            id="baseUrl"
+            type="url"
+            class="mono"
+            placeholder="https://jenkins.internal.example.com"
+          />
+          <div class="hint">
+            No trailing job path. Include the context path if Jenkins sits
+            behind a proxy, for example
+            <code>https://ci.example.com/jenkins</code>.
+          </div>
+        </div>
+        <div class="field">
+          <label for="authMode">Authentication</label>
+          <select id="authMode">
+            <option value="token">API token (recommended)</option>
+            <option value="cookie">Reuse my browser session</option>
+          </select>
+          <div class="hint">
+            API token requests are exempt from Jenkins CSRF checks. Session mode
+            needs you logged in to Jenkins in this browser and fetches a crumb
+            per build.
+          </div>
+        </div>
+        <div id="token-fields">
+          <div class="field">
+            <label for="userId">User ID</label>
+            <input
+              id="userId"
+              type="text"
+              class="mono"
+              autocomplete="off"
+              placeholder="a.kumar"
+            />
+          </div>
+          <div class="field">
+            <label for="token">API token</label>
+            <input id="token" type="password" class="mono" autocomplete="off" />
+            <div class="hint">
+              Create one at <code>/me/security</code> on your Jenkins.
+            </div>
+          </div>
+        </div>
+        <div class="actions">
+          <button id="save" class="primary">Save connection</button>
+          <button id="test" class="secondary">Test connection</button>
+          <span id="status"></span>
+        </div>
+      </fieldset>
 
-      <div class="field inline" style="margin-top:14px">
-        <input id="notifyStale" type="checkbox">
-        <label for="notifyStale">Also tell me about builds I missed</label>
-      </div>
-      <div class="hint">
-        Notifications only arrive while Chrome is running and the controller is reachable.
-        Off the VPN or with Chrome closed, builds pile up and all announce themselves at
-        once on reconnect. Leave this unchecked to drop anything that already happened more
-        than two minutes ago.
-      </div>
-    </fieldset>
+      <fieldset>
+        <legend>STATUS TRACKING</legend>
+        <div id="tracking-saved" class="hint autosave"></div>
+        <div class="field">
+          <label for="pollSeconds">Poll interval (seconds)</label>
+          <input id="pollSeconds" type="number" min="30" max="600" step="10" />
+          <div class="hint">
+            Chrome will not fire alarms faster than every 30 seconds. While the
+            popup is open, elapsed times still tick every second.
+          </div>
+        </div>
+        <div class="field inline">
+          <input id="notify" type="checkbox" />
+          <label for="notify">Desktop notification when a build finishes</label>
+        </div>
+      </fieldset>
 
-    <fieldset>
-      <legend>SEARCH</legend>
-      <div id="search-saved" class="hint autosave"></div>
-      <div class="field">
-        <label for="searchDepth">Folder depth to index</label>
-        <input id="searchDepth" type="number" min="1" max="6" step="1">
-        <div class="hint">How many levels of Jenkins folders the pipeline search walks. Raise it if jobs are nested deeply; lower it if the first search is slow. The list is cached for the browser session.</div>
-      </div>
-    </fieldset>
+      <fieldset>
+        <legend>SUBSCRIPTIONS</legend>
+        <div id="subs-saved" class="hint autosave"></div>
+        <p class="lede" style="margin-bottom: 14px">
+          Subscribe to a pipeline from the bell in its parameter panel and you
+          are notified whenever it runs, whoever started it. These choose which
+          moments are worth a notification; at least one has to stay on.
+        </p>
 
-    <fieldset>
-      <legend>BLOCK TRIGGERING</legend>
-      <div id="deny-saved" class="hint autosave"></div>
-      <p class="lede" style="margin-bottom:14px">
-        A blocked pipeline cannot be started from the popup. Its <b>Run</b> button becomes
-        <b>Open</b> and takes you to the job in Jenkins instead.
-      </p>
+        <div class="field inline">
+          <input id="on-triggered" type="checkbox" />
+          <label for="on-triggered">When a build starts</label>
+        </div>
+        <div class="field inline">
+          <input id="on-deployed" type="checkbox" />
+          <label for="on-deployed">When a build succeeds</label>
+        </div>
+        <div class="field inline">
+          <input id="on-failed" type="checkbox" />
+          <label for="on-failed">When a build fails</label>
+        </div>
 
-      <div class="field">
-        <label for="denyPatterns">Never trigger pipelines matching these patterns</label>
-        <textarea id="denyPatterns" class="mono" rows="4"
-                  spellcheck="false" placeholder="prod&#10;^Release/"></textarea>
+        <div class="field inline" style="margin-top: 14px">
+          <input id="notifyStale" type="checkbox" />
+          <label for="notifyStale">Also tell me about builds I missed</label>
+        </div>
         <div class="hint">
-          One regular expression per line, matched against the pipeline's full path such as
-          <code>Frontend/web-prod-deploy</code>, ignoring case and anywhere in the path.
-          <code>prod</code> blocks anything with "prod" in it; <code>^Release/</code> only
-          the Release folder; <code>deploy$</code> only names ending in "deploy".
+          Notifications only arrive while Chrome is running and the controller
+          is reachable. Off the VPN or with Chrome closed, builds pile up and
+          all announce themselves at once on reconnect. Leave this unchecked to
+          drop anything that already happened more than two minutes ago.
         </div>
-        <div id="deny-status" class="hint"></div>
-      </div>
+      </fieldset>
 
-      <div class="field">
-        <label for="denyTest">Try a path against them</label>
-        <input id="denyTest" type="text" class="mono" placeholder="Frontend/web-prod-deploy">
-        <div id="deny-test-result" class="hint"></div>
-      </div>
+      <fieldset>
+        <legend>SEARCH</legend>
+        <div id="search-saved" class="hint autosave"></div>
+        <div class="field">
+          <label for="searchDepth">Folder depth to index</label>
+          <input id="searchDepth" type="number" min="1" max="6" step="1" />
+          <div class="hint">
+            How many levels of Jenkins folders the pipeline search walks. Raise
+            it if jobs are nested deeply; lower it if the first search is slow.
+            The list is cached for the browser session.
+          </div>
+        </div>
+      </fieldset>
 
-      <div class="note">
-        To block one pipeline instead, click the padlock beside its name in the popup. A
-        pattern block cannot be undone there; change the pattern here.
-      </div>
-    </fieldset>
+      <fieldset>
+        <legend>BLOCK TRIGGERING</legend>
+        <div id="deny-saved" class="hint autosave"></div>
+        <p class="lede" style="margin-bottom: 14px">
+          A blocked pipeline cannot be started from the popup. Its
+          <b>Run</b> button becomes <b>Open</b> and takes you to the job in
+          Jenkins instead.
+        </p>
 
-    <fieldset>
-      <legend>WHERE THIS IS STORED</legend>
-      <div class="note">
-        The base URL, user ID, starred pipelines and their saved parameter values live in
-        <code>chrome.storage.sync</code>, so they follow your Chrome profile. The API token is
-        deliberately kept in <code>chrome.storage.local</code> instead, so the credential is
-        not uploaded to Google and copied to every machine you sign in on. Password build
-        parameters are sent to Jenkins but never written to storage at all.
-      </div>
-    </fieldset>
-  </div>
+        <div class="field">
+          <label for="denyPatterns"
+            >Never trigger pipelines matching these patterns</label
+          >
+          <textarea
+            id="denyPatterns"
+            class="mono"
+            rows="4"
+            spellcheck="false"
+            placeholder="prod&#10;^Release/"
+          ></textarea>
+          <div class="hint">
+            One regular expression per line, matched against the pipeline's full
+            path such as
+            <code>Frontend/web-prod-deploy</code>, ignoring case and anywhere in
+            the path. <code>prod</code> blocks anything with "prod" in it;
+            <code>^Release/</code> only the Release folder;
+            <code>deploy$</code> only names ending in "deploy".
+          </div>
+          <div id="deny-status" class="hint"></div>
+        </div>
 
-  <script type="module" src="options.js"></script>
-</body>
+        <div class="field">
+          <label for="denyTest">Try a path against them</label>
+          <input
+            id="denyTest"
+            type="text"
+            class="mono"
+            placeholder="Frontend/web-prod-deploy"
+          />
+          <div id="deny-test-result" class="hint"></div>
+        </div>
+
+        <div class="note">
+          To block one pipeline instead, click the padlock beside its name in
+          the popup. A pattern block cannot be undone there; change the pattern
+          here.
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>WHERE THIS IS STORED</legend>
+        <div class="note">
+          The base URL, user ID, starred pipelines and their saved parameter
+          values live in
+          <code>chrome.storage.sync</code>, so they follow your Chrome profile.
+          The API token is deliberately kept in
+          <code>chrome.storage.local</code> instead, so the credential is not
+          uploaded to Google and copied to every machine you sign in on.
+          Password build parameters are sent to Jenkins but never written to
+          storage at all.
+        </div>
+      </fieldset>
+    </div>
+
+    <script type="module" src="options.js"></script>
+  </body>
 </html>

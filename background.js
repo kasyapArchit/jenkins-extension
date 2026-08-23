@@ -1,12 +1,12 @@
-import * as store from './lib/store.js';
-import * as jenkins from './lib/jenkins.js';
-import { BUILD } from './lib/build.js';
-import { qualifiedName, buildLabel } from './lib/format.js';
-import { blockReason } from './lib/guard.js';
-import { nextEvent, eventTime, isStale, wants } from './lib/watch.js';
+import * as store from "./lib/store.js";
+import * as jenkins from "./lib/jenkins.js";
+import { BUILD } from "./lib/build.js";
+import { qualifiedName, buildLabel } from "./lib/format.js";
+import { blockReason } from "./lib/guard.js";
+import { nextEvent, eventTime, isStale, wants } from "./lib/watch.js";
 
-const ALARM = 'poll-runs';
-const GIVE_UP_MS = 3 * 60 * 60 * 1000;   // stop chasing a run after three hours
+const ALARM = "poll-runs";
+const GIVE_UP_MS = 3 * 60 * 60 * 1000; // stop chasing a run after three hours
 
 chrome.runtime.onInstalled.addListener(async () => {
   await store.migrate();
@@ -16,27 +16,42 @@ chrome.runtime.onStartup.addListener(ensureAlarm);
 
 async function ensureAlarm() {
   const { pollSeconds } = await store.getConfig();
-  chrome.alarms.create(ALARM, { periodInMinutes: Math.max(0.5, (pollSeconds || 30) / 60) });
+  chrome.alarms.create(ALARM, {
+    periodInMinutes: Math.max(0.5, (pollSeconds || 30) / 60),
+  });
 }
 
-chrome.alarms.onAlarm.addListener(a => { if (a.name === ALARM) pollAll(); });
+chrome.alarms.onAlarm.addListener((a) => {
+  if (a.name === ALARM) pollAll();
+});
 
 chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
   handle(msg)
-    .then(data => respond({ ok: true, data }))
-    .catch(err => respond({ ok: false, error: err.message || String(err) }));
-  return true;   // keep the channel open for the async reply
+    .then((data) => respond({ ok: true, data }))
+    .catch((err) => respond({ ok: false, error: err.message || String(err) }));
+  return true; // keep the channel open for the async reply
 });
 
 async function handle(msg) {
   switch (msg.type) {
-    case 'trigger':     return trigger(msg.pipelineId, msg.params, msg.persist, msg.job,
-                                       msg.remember !== false);
-    case 'diagnose':    return diagnose();
-    case 'ping':        return { build: BUILD };
-    case 'poll':        return pollAll();
-    case 'ensureAlarm': return ensureAlarm();
-    default: throw new Error(`Unknown message: ${msg.type}`);
+    case "trigger":
+      return trigger(
+        msg.pipelineId,
+        msg.params,
+        msg.persist,
+        msg.job,
+        msg.remember !== false,
+      );
+    case "diagnose":
+      return diagnose();
+    case "ping":
+      return { build: BUILD };
+    case "poll":
+      return pollAll();
+    case "ensureAlarm":
+      return ensureAlarm();
+    default:
+      throw new Error(`Unknown message: ${msg.type}`);
   }
 }
 
@@ -50,11 +65,11 @@ async function diagnose() {
     baseUrl: config.baseUrl,
     userId: config.userId,
     authMode: config.authMode,
-    hasToken: Boolean(config.token)
+    hasToken: Boolean(config.token),
   };
   try {
     const me = await jenkins.whoAmI(config);
-    out.ok = Boolean(me.id) && me.id !== 'anonymous';
+    out.ok = Boolean(me.id) && me.id !== "anonymous";
     out.who = me.fullName || me.id;
   } catch (err) {
     out.ok = false;
@@ -70,9 +85,9 @@ async function diagnose() {
 // on since.
 async function trigger(pipelineId, params, persist, job, remember = true) {
   const config = await store.getConfig();
-  const entry = (await store.getStarred()).find(p => p.id === pipelineId);
+  const entry = (await store.getStarred()).find((p) => p.id === pipelineId);
   const pipeline = entry || job;
-  if (!pipeline?.url) throw new Error('That pipeline is no longer available.');
+  if (!pipeline?.url) throw new Error("That pipeline is no longer available.");
 
   // Checked here and not only in the popup. The popup swaps its button for one
   // that opens Jenkins, but that is an affordance, not a guard: a stale popup, a
@@ -80,9 +95,12 @@ async function trigger(pipelineId, params, persist, job, remember = true) {
   // here. This is the line the build cannot get past.
   const reason = blockReason(pipeline, {
     blocked: await store.getBlocked(),
-    patterns: config.denyPatterns
+    patterns: config.denyPatterns,
   });
-  if (reason) throw new Error(`${qualifiedName(pipeline.fullName, pipeline.name)} is ${reason}.`);
+  if (reason)
+    throw new Error(
+      `${qualifiedName(pipeline.fullName, pipeline.name)} is ${reason}.`,
+    );
 
   const queueUrl = await jenkins.triggerBuild(pipeline.url, params, config);
 
@@ -91,14 +109,16 @@ async function trigger(pipelineId, params, persist, job, remember = true) {
   // would silently star every pipeline run from search.
   if (entry) await store.star({ id: pipelineId, lastRunAt: Date.now() });
 
-  const run = await store.addRun(store.newRun({
-    jobId: pipelineId,
-    name: pipeline.name,
-    fullName: pipeline.fullName ?? null,
-    jobUrl: pipeline.url,
-    queueUrl,
-    params: persist ?? params
-  }));
+  const run = await store.addRun(
+    store.newRun({
+      jobId: pipelineId,
+      name: pipeline.name,
+      fullName: pipeline.fullName ?? null,
+      jobUrl: pipeline.url,
+      queueUrl,
+      params: persist ?? params,
+    }),
+  );
 
   await ensureAlarm();
   pollAll();
@@ -115,7 +135,9 @@ async function pollAll() {
     for (const run of (await store.getRuns()).filter(store.isActive)) {
       if (Date.now() - run.startedAt > GIVE_UP_MS) {
         await store.updateRun(run.id, {
-          status: 'ERROR', error: 'Stopped tracking after three hours.', finishedAt: Date.now()
+          status: "ERROR",
+          error: "Stopped tracking after three hours.",
+          finishedAt: Date.now(),
         });
         continue;
       }
@@ -124,8 +146,12 @@ async function pollAll() {
       } catch (err) {
         // A network blip should not kill a run we are still tracking. Only give
         // up on errors that will not fix themselves.
-        if (err.kind === 'network') continue;
-        await store.updateRun(run.id, { status: 'ERROR', error: err.message, finishedAt: Date.now() });
+        if (err.kind === "network") continue;
+        await store.updateRun(run.id, {
+          status: "ERROR",
+          error: err.message,
+          finishedAt: Date.now(),
+        });
       }
     }
     await pollSubscriptions(config);
@@ -155,7 +181,9 @@ async function pollSubscriptions(config) {
   // Builds this extension started are already tracked and announced by the run
   // list. Without this a pipeline you both subscribed to and triggered would
   // notify twice for the same build.
-  const ours = new Set((await store.getRuns()).map(r => `${r.jobId}::${r.build}`));
+  const ours = new Set(
+    (await store.getRuns()).map((r) => `${r.jobId}::${r.build}`),
+  );
 
   for (const sub of subs) {
     let build;
@@ -179,7 +207,7 @@ async function pollSubscriptions(config) {
   await store.setWatch(next);
 }
 
-const HEADLINE = { started: 'started', deployed: 'deployed', failed: 'failed' };
+const HEADLINE = { started: "started", deployed: "deployed", failed: "failed" };
 
 async function announceEvent(sub, ev, config) {
   if (config.notify === false) return;
@@ -190,27 +218,34 @@ async function announceEvent(sub, ev, config) {
 
   const label = ev.build.displayName?.trim() || `#${ev.build.number}`;
   chrome.notifications.create(`sub::${ev.build.number}::${sub.url}`, {
-    type: 'basic',
-    iconUrl: 'icons/128-mark.png',
+    type: "basic",
+    iconUrl: "icons/128-mark.png",
     title: `${qualifiedName(sub.fullName, sub.name)} ${label} ${HEADLINE[ev.kind]}`,
-    message: ev.kind === 'started'
-      ? 'A build you subscribe to has started.'
-      : `A build you subscribe to ${ev.kind === 'deployed' ? 'finished successfully' : `finished: ${ev.build.result}`}.`,
-    priority: ev.kind === 'failed' ? 2 : 0
+    message:
+      ev.kind === "started"
+        ? "A build you subscribe to has started."
+        : `A build you subscribe to ${ev.kind === "deployed" ? "finished successfully" : `finished: ${ev.build.result}`}.`,
+    priority: ev.kind === "failed" ? 2 : 0,
   });
 }
 
 async function advance(run, config) {
-  if (run.status === 'QUEUED' && run.queueUrl) {
+  if (run.status === "QUEUED" && run.queueUrl) {
     const item = await jenkins.getQueueItem(run.queueUrl, config);
     if (item.cancelled) {
-      await store.updateRun(run.id, { status: 'ABORTED', finishedAt: Date.now() });
+      await store.updateRun(run.id, {
+        status: "ABORTED",
+        finishedAt: Date.now(),
+      });
       return;
     }
     if (item.executable) {
       await store.updateRun(run.id, {
-        status: 'RUNNING', url: item.executable.url, build: item.executable.number,
-        buildStartedAt: Date.now(), why: null
+        status: "RUNNING",
+        url: item.executable.url,
+        build: item.executable.number,
+        buildStartedAt: Date.now(),
+        why: null,
       });
       return;
     }
@@ -218,22 +253,28 @@ async function advance(run, config) {
     return;
   }
 
-  if (run.status === 'RUNNING' && run.url) {
+  if (run.status === "RUNNING" && run.url) {
     const build = await jenkins.getBuild(run.url, config);
     // Pipelines rename themselves partway through, so this is re-read on every
     // poll rather than captured once when the build started.
-    const version = { displayName: build.displayName ?? run.displayName ?? null };
+    const version = {
+      displayName: build.displayName ?? run.displayName ?? null,
+    };
 
     if (build.building) {
       await store.updateRun(run.id, {
         ...version,
         estimatedDuration: build.estimatedDuration,
-        buildStartedAt: build.timestamp || run.buildStartedAt
+        buildStartedAt: build.timestamp || run.buildStartedAt,
       });
       return;
     }
-    const status = build.result || 'UNKNOWN';
-    await store.updateRun(run.id, { ...version, status, finishedAt: Date.now() });
+    const status = build.result || "UNKNOWN";
+    await store.updateRun(run.id, {
+      ...version,
+      status,
+      finishedAt: Date.now(),
+    });
     await announce({ ...run, ...version, status }, config);
   }
 }
@@ -241,34 +282,42 @@ async function advance(run, config) {
 async function announce(run, config) {
   if (config.notify === false) return;
   chrome.notifications.create(`${run.id}::done`, {
-    type: 'basic',
-    iconUrl: 'icons/128-mark.png',
-    title: `${qualifiedName(run.fullName, run.name)} ${buildLabel(run)} ${run.status}`.replace(/\s+/g, ' ').trim(),
-    message: run.status === 'SUCCESS' ? 'Build finished successfully.' : `Build finished: ${run.status}`,
-    priority: run.status === 'SUCCESS' ? 0 : 2
+    type: "basic",
+    iconUrl: "icons/128-mark.png",
+    title:
+      `${qualifiedName(run.fullName, run.name)} ${buildLabel(run)} ${run.status}`
+        .replace(/\s+/g, " ")
+        .trim(),
+    message:
+      run.status === "SUCCESS"
+        ? "Build finished successfully."
+        : `Build finished: ${run.status}`,
+    priority: run.status === "SUCCESS" ? 0 : 2,
   });
 }
 
-chrome.notifications?.onClicked.addListener(async id => {
+chrome.notifications?.onClicked.addListener(async (id) => {
   // Subscription ids carry their own target, since the build was never in the
   // run list to look up. The job URL is last because it contains slashes and
   // colons of its own but never a '::'.
-  if (id.startsWith('sub::')) {
-    const [, number, ...rest] = id.split('::');
-    const jobUrl = rest.join('::');
+  if (id.startsWith("sub::")) {
+    const [, number, ...rest] = id.split("::");
+    const jobUrl = rest.join("::");
     if (jobUrl) chrome.tabs.create({ url: `${jobUrl}/${number}` });
     return;
   }
-  const run = (await store.getRuns()).find(r => `${r.id}::done` === id);
+  const run = (await store.getRuns()).find((r) => `${r.id}::done` === id);
   if (run?.url) chrome.tabs.create({ url: run.url });
 });
 
 async function refreshBadge() {
   const runs = await store.getRuns();
   const active = runs.filter(store.isActive).length;
-  const bad = runs.some(r => !store.isActive(r) && r.status !== 'SUCCESS');
-  await chrome.action.setBadgeText({ text: active ? String(active) : '' });
-  await chrome.action.setBadgeBackgroundColor({ color: bad ? '#c0392b' : '#2f6fdb' });
+  const bad = runs.some((r) => !store.isActive(r) && r.status !== "SUCCESS");
+  await chrome.action.setBadgeText({ text: active ? String(active) : "" });
+  await chrome.action.setBadgeBackgroundColor({
+    color: bad ? "#c0392b" : "#2f6fdb",
+  });
 }
 
 ensureAlarm();

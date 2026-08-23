@@ -3,14 +3,8 @@
   "name": "Jenkins Launcher",
   "version": "0.8.3",
   "description": "Trigger starred Jenkins pipelines with saved parameters and watch their status.",
-  "permissions": [
-    "storage",
-    "alarms",
-    "notifications"
-  ],
-  "optional_host_permissions": [
-    "*://*/*"
-  ],
+  "permissions": ["storage", "alarms", "notifications"],
+  "optional_host_permissions": ["*://*/*"],
   "background": {
     "service_worker": "background.js",
     "type": "module"
