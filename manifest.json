@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Jenkins Launcher",
-  "version": "0.8.3",
+  "name": "Jenkins Quickfire",
+  "version": "0.8.4",
   "description": "Trigger starred Jenkins pipelines with saved parameters and watch their status.",
   "permissions": ["storage", "alarms", "notifications"],
   "optional_host_permissions": ["*://*/*"],
@@ -10,7 +10,7 @@
     "type": "module"
   },
   "action": {
-    "default_title": "Jenkins Launcher",
+    "default_title": "Jenkins Quickfire",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/16-mark.png",

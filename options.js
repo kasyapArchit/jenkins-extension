@@ -293,7 +293,7 @@ function report(candidate, form, worker) {
   if (worker.clientBuild !== BUILD) {
     return status(
       "The background script is running older code than this page. Open chrome://extensions, " +
-        "toggle Jenkins Launcher off and on, then test again.",
+        "toggle Jenkins Quickfire off and on, then test again.",
       "err",
     );
   }

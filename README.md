@@ -1,4 +1,4 @@
-# Jenkins Launcher
+# Jenkins Quickfire
 
 A Chrome extension for starting Jenkins builds without opening Jenkins.
 
