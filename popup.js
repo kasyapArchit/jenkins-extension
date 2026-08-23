@@ -1150,8 +1150,8 @@ function bellButton(p, rerender) {
       title: muted
         ? "Subscribed, but every notification kind is switched off in settings."
         : on
-          ? "Subscribed. Click to stop being notified about this pipeline."
-          : "Notify me whenever this pipeline runs, whoever starts it.",
+          ? "Subscribed. Click to stop being notified."
+          : "Notify me whenever this pipeline runs.",
       onclick: async (e) => {
         e.stopPropagation();
         subscribed = on
