@@ -27,6 +27,9 @@
     }
     document.body.append(doc.querySelector('.sheet'));
     await import('../options.js');
+    // Same signal preview.html's shots.js sets, so a screenshot tool can wait
+    // on one flag regardless of which preview page it's driving.
+    document.documentElement.dataset.shotReady = '1';
   </script>
 </body>
 </html>

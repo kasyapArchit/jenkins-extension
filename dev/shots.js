@@ -12,7 +12,9 @@ const params = new URLSearchParams(location.search);
 const q = params.get('q');
 const open = params.get('open');
 const subs = params.has('subs');
-if (q || open !== null || subs) apply();
+// Always run, even with none of the above, so a plain browse view still ends
+// in the same shotReady signal a screenshot tool can wait on.
+apply();
 
 async function apply() {
   // The popup renders from storage on load, so wait for it rather than racing.
