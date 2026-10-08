@@ -119,19 +119,21 @@ function renderHeader() {
   const dot = $("#conn-dot");
   const state = ui.connection;
   dot.className = `conn-dot ${state === "checking" ? "" : state}`;
+  const cookie = config.authMode === "cookie";
   dot.title = {
     checking: "Checking the controller…",
     online: "Reachable — last checked just now",
     offline: "Controller unreachable. Are you on the VPN?",
-    unauthorized:
-      "Jenkins rejected the credentials — check your API token in settings",
+    unauthorized: cookie
+      ? "Not logged in to Jenkins in this browser"
+      : "Jenkins rejected the credentials — check your API token in settings",
   }[state];
 
   $("#conn-label").textContent = {
     checking: "Checking…",
     online: "Connected",
     offline: "No VPN",
-    unauthorized: "Auth failed",
+    unauthorized: cookie ? "Logged out" : "Auth failed",
   }[state];
 
   const host = jenkins.hostOf(config.baseUrl);
@@ -184,6 +186,26 @@ function renderBanner() {
       el("button", {
         textContent: "Settings",
         onclick: () => chrome.runtime.openOptionsPage(),
+      }),
+    );
+    return;
+  }
+
+  // Cookie mode has no credentials to fix; the browser session is what lapsed.
+  if (ui.connection === "unauthorized" && config.authMode === "cookie") {
+    b.hidden = false;
+    b.append(
+      icon("alert-triangle", { size: 14 }),
+      el("span", {
+        class: "banner-text",
+        textContent: "Not logged in to Jenkins in this browser.",
+      }),
+      el("button", {
+        textContent: "Log in",
+        onclick: () =>
+          chrome.tabs.create({
+            url: `${config.baseUrl.replace(/\/+$/, "")}/login`,
+          }),
       }),
     );
     return;

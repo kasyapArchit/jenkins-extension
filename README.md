@@ -221,7 +221,9 @@ to make one explicit verification request after fixing authentication on Jenkins
 verification keeps requests blocked; a successful verification clears the block. Unrelated
 preference changes do not unblock requests. A `403` does not block anything: it means Jenkins
 accepted the token and the account lacks permission on that job. Cookie mode is never blocked,
-since it sends no credentials of its own.
+since it sends no credentials of its own. When the browser session has lapsed, Jenkins answers
+`403` as anonymous: the popup shows **Logged out** with a link to the Jenkins login page, and
+polling pauses without failing tracked runs until you log back in.
 
 **API token** (recommended) sends HTTP Basic on every request. Jenkins exempts token requests
 from CSRF, so no crumb is needed.
