@@ -147,7 +147,7 @@ async function pollAll() {
         await advance(run, config);
       } catch (err) {
         // Stop the entire batch at the first rejected token, including subscriptions.
-        if (err.kind === "auth") return;
+        if (jenkins.haltsPolling(err)) return;
         // A network blip should not kill a run we are still tracking. Only give
         // up on errors that will not fix themselves.
         if (err.kind === "network") continue;
@@ -194,7 +194,7 @@ async function pollSubscriptions(config) {
     try {
       build = await jenkins.getLastBuild(sub.url, config);
     } catch (err) {
-      if (err.kind === "auth") return;
+      if (jenkins.haltsPolling(err)) return;
       // Off the VPN, renamed, or permissions changed. Keep the existing mark so
       // reconnecting compares against what we last really saw.
       if (marks[sub.id]) next[sub.id] = marks[sub.id];

@@ -37,4 +37,28 @@ await assert.rejects(getJson('https://ci.test/api/json', config));
 status = 200;
 await getJson('https://ci.test/api/json', { ...config, token: 'new' });
 assert.equal(calls, 6, 'updated credentials permit requests');
+
+status = 403;
+await assert.rejects(triggerBuild('https://ci.test/job/a', {}, config));
+status = 200;
+await getJson('https://ci.test/api/json', config);
+assert.equal(calls, 8, 'a 403 on one job does not block the credentials');
+
+status = 401;
+await assert.rejects(getJson('https://ci.test/api/json', config));
+assert.equal(calls, 9);
+await assert.rejects(verifyAuthentication({ ...config, token: 'typo' }));
+assert.equal(calls, 10, 'testing other credentials sends one request');
+await assert.rejects(getJson('https://ci.test/api/json', config));
+assert.equal(calls, 10, 'saved credentials stay blocked after testing others');
+
+const cookie = { ...config, authMode: 'cookie', token: '' };
+await assert.rejects(getJson('https://ci.test/api/json', cookie));
+status = 200;
+await getJson('https://ci.test/api/json', cookie);
+assert.equal(calls, 12, 'cookie mode is never blocked');
+
+state.pollingAuthFailure = await (await import('../lib/auth.js')).credentialKey(config);
+await assert.rejects(getJson('https://ci.test/api/json', config));
+assert.equal(calls, 12, 'a single digest from an older build is still honoured');
 console.log('all request auth lock assertions passed');

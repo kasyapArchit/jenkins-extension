@@ -30,6 +30,7 @@ const ui = {
   addOpen: false,
   subsOpen: false, // the subscribed-pipelines list under the footer
   connection: "checking", // checking | online | offline | unauthorized
+  blocked: false, // credentials are on the stored auth block list; no requests go out
   worker: "ok", // ok | stale | silent
   activeResult: 0,
   justOpened: null, // the one card whose panel should animate on this render
@@ -53,6 +54,9 @@ async function init() {
     ],
   );
 
+  // Read before the first render so a blocked popup never shows live controls,
+  // even for the moment it takes the probe to come back.
+  ui.blocked = await jenkins.isAuthBlocked(config);
   mountChrome();
   renderAll();
 
@@ -62,7 +66,7 @@ async function init() {
   chrome.runtime.sendMessage({ type: "poll" }).catch(() => {});
   checkWorker();
   await refreshConnection();
-  if (ui.connection !== "unauthorized") warmIndex();
+  if (!ui.blocked) warmIndex();
 }
 
 // The popup always loads fresh from disk; the service worker may not. When they
@@ -131,13 +135,13 @@ function renderHeader() {
   }[state];
 
   const host = jenkins.hostOf(config.baseUrl);
-  const tracking = ui.connection === "unauthorized" ? "requests blocked" : `polling every ${config.pollSeconds}s`;
+  const tracking = ui.blocked ? "requests blocked" : `polling every ${config.pollSeconds}s`;
   const bits = [host, tracking].filter(Boolean);
   $("#conn-context").textContent = bits.length ? `· ${bits.join(" · ")}` : "";
 }
 
 function renderBanner() {
-  const locked = ui.connection === "unauthorized" || ui.connection === "checking";
+  const locked = ui.blocked;
   for (const selector of ["#body", ".search-wrap", ".ftr"]) {
     $(selector).inert = locked;
     $(selector).classList.toggle("auth-locked", locked);
@@ -195,7 +199,9 @@ function renderBanner() {
         class: "banner-text",
         textContent: missing
           ? "No API token saved yet."
-          : "Jenkins requests are blocked after an authentication failure. Update authentication or test the connection in settings.",
+          : ui.blocked
+            ? "Jenkins requests are blocked after an authentication failure. Update authentication or test the connection in settings."
+            : "Jenkins rejected the credentials.",
       }),
       el("button", {
         textContent: "Fix in settings",
@@ -228,21 +234,27 @@ async function refreshConnection() {
     renderBanner();
     return;
   }
+  // Updated on both sides of the probe: before it, so a block or unblock shows
+  // without waiting on the network; after it, because the probe can set one.
+  ui.blocked = await jenkins.isAuthBlocked(config);
+  renderHeader();
+  renderBanner();
   ui.connection = await jenkins.probe(config);
+  ui.blocked = await jenkins.isAuthBlocked(config);
   $("#body").classList.toggle("stale", ui.connection === "offline");
   renderHeader();
   renderBanner();
 }
 
 async function onRefresh() {
-  if (ui.connection === "unauthorized") return;
+  if (ui.blocked) return;
   const btn = $("#refresh");
   btn.classList.add("spinning");
   store.clearIndex();
   index = null;
   indexError = null;
   await refreshConnection();
-  if (ui.connection !== "unauthorized") {
+  if (!ui.blocked) {
     await chrome.runtime.sendMessage({ type: "poll" }).catch(() => {});
     await warmIndex();
   }
