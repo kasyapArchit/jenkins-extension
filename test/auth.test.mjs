@@ -2,11 +2,14 @@
 import { getJson, probe, triggerBuild, JenkinsError } from '../lib/jenkins.js';
 import { BUILD } from '../lib/build.js';
 
+const authState = {};
+globalThis.chrome = { storage: { local: { async get(key) { return { [key]: authState[key] }; }, async set(patch) { Object.assign(authState, patch); }, async remove(key) { delete authState[key]; } } } };
+
 let failed = 0;
 const check = (name, cond) => { if (!cond) { failed++; console.error(`FAIL ${name}`); } };
 
 const TOKEN_CFG = { baseUrl: 'https://ci.test', authMode: 'token', userId: 'a.k', token: 't0ken' };
-const stub = handler => { globalThis.fetch = handler; };
+const stub = handler => { delete authState.pollingAuthFailure; globalThis.fetch = handler; };
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 

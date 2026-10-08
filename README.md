@@ -213,6 +213,14 @@ that is still running.
 
 ## Authentication
 
+After a `401` or `403`, the extension blocks all Jenkins requests with those authentication
+settings, including polling, search, triggers, aborts, and connection checks. The block
+survives browser restarts. The popup shows a warning and disables operations while keeping
+Settings available. Update the connection credentials to resume, or use **Test connection**
+to make one explicit verification request after fixing authentication on Jenkins. A failed
+verification keeps requests blocked; a successful verification clears the block. Unrelated
+preference changes do not unblock requests.
+
 **API token** (recommended) sends HTTP Basic on every request. Jenkins exempts token requests
 from CSRF, so no crumb is needed.
 

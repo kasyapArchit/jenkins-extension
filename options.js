@@ -262,7 +262,7 @@ async function test() {
 
   let form;
   try {
-    const me = await jenkins.whoAmI(candidate);
+    const me = await jenkins.verifyAuthentication(candidate);
     form =
       me.id && me.id !== "anonymous"
         ? { ok: true, who: me.fullName || me.id }
@@ -273,6 +273,8 @@ async function test() {
   } catch (err) {
     form = { ok: false, error: err.message };
   }
+
+  if (!form.ok) return status(form.error, "err");
 
   const worker = await chrome.runtime
     .sendMessage({ type: "diagnose" })

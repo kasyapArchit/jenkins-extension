@@ -1003,3 +1003,5 @@ a:hover {
 .banner button:hover {
   background: var(--hover);
 }
+
+.auth-locked { opacity: 0.5; }

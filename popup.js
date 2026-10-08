@@ -61,8 +61,8 @@ async function init() {
 
   chrome.runtime.sendMessage({ type: "poll" }).catch(() => {});
   checkWorker();
-  refreshConnection();
-  warmIndex();
+  await refreshConnection();
+  if (ui.connection !== "unauthorized") warmIndex();
 }
 
 // The popup always loads fresh from disk; the service worker may not. When they
@@ -101,12 +101,12 @@ function mountChrome() {
 
 function renderAll() {
   renderHeader();
-  renderBanner();
   renderMode();
   renderResults();
   renderActivity();
   renderStarred();
   renderFooter();
+  renderBanner();
 }
 
 /* ---------- header and connection ---------- */
@@ -131,11 +131,22 @@ function renderHeader() {
   }[state];
 
   const host = jenkins.hostOf(config.baseUrl);
-  const bits = [host, `polling every ${config.pollSeconds}s`].filter(Boolean);
+  const tracking = ui.connection === "unauthorized" ? "requests blocked" : `polling every ${config.pollSeconds}s`;
+  const bits = [host, tracking].filter(Boolean);
   $("#conn-context").textContent = bits.length ? `· ${bits.join(" · ")}` : "";
 }
 
 function renderBanner() {
+  const locked = ui.connection === "unauthorized" || ui.connection === "checking";
+  for (const selector of ["#body", ".search-wrap", ".ftr"]) {
+    $(selector).inert = locked;
+    $(selector).classList.toggle("auth-locked", locked);
+    for (const control of $(selector).querySelectorAll("button, input, select, textarea")) {
+      if (locked && !control.disabled) { control.dataset.authDisabled = "true"; control.disabled = true; }
+      else if (!locked && control.dataset.authDisabled) { delete control.dataset.authDisabled; control.disabled = false; }
+    }
+  }
+  $("#refresh").disabled = locked;
   const b = clear($("#banner"));
 
   // First, because a stale worker makes every other diagnosis untrustworthy.
@@ -184,7 +195,7 @@ function renderBanner() {
         class: "banner-text",
         textContent: missing
           ? "No API token saved yet."
-          : "Jenkins rejected the credentials.",
+          : "Jenkins requests are blocked after an authentication failure. Update authentication or test the connection in settings.",
       }),
       el("button", {
         textContent: "Fix in settings",
@@ -224,16 +235,17 @@ async function refreshConnection() {
 }
 
 async function onRefresh() {
+  if (ui.connection === "unauthorized") return;
   const btn = $("#refresh");
   btn.classList.add("spinning");
   store.clearIndex();
   index = null;
   indexError = null;
-  await Promise.all([
-    refreshConnection(),
-    chrome.runtime.sendMessage({ type: "poll" }).catch(() => {}),
-    warmIndex(),
-  ]);
+  await refreshConnection();
+  if (ui.connection !== "unauthorized") {
+    await chrome.runtime.sendMessage({ type: "poll" }).catch(() => {});
+    await warmIndex();
+  }
   runs = await store.getRuns();
   renderActivity();
   renderFooter();
@@ -1453,6 +1465,10 @@ async function onAdd() {
 /* ---------- reacting to background writes ---------- */
 
 async function onStorageChanged(changes, area) {
+  if ((area === "local" && (changes.pollingAuthFailure || changes.token)) || (area === "sync" && changes.config)) {
+    config = await store.getConfig();
+    await refreshConnection();
+  }
   if (area === "local" && changes.runs) {
     runs = changes.runs.newValue || [];
     renderActivity();
@@ -1486,4 +1502,5 @@ async function onStorageChanged(changes, area) {
     renderStarred();
     renderResults();
   }
+  renderBanner();
 }

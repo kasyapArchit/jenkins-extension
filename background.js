@@ -1,3 +1,4 @@
+import { isAuthBlocked } from "./lib/auth.js";
 import * as store from "./lib/store.js";
 import * as jenkins from "./lib/jenkins.js";
 import { BUILD } from "./lib/build.js";
@@ -132,6 +133,7 @@ async function pollAll() {
   polling = true;
   try {
     const config = await store.getConfig();
+    if (await isAuthBlocked(config)) return;
     for (const run of (await store.getRuns()).filter(store.isActive)) {
       if (Date.now() - run.startedAt > GIVE_UP_MS) {
         await store.updateRun(run.id, {
@@ -144,6 +146,8 @@ async function pollAll() {
       try {
         await advance(run, config);
       } catch (err) {
+        // Stop the entire batch at the first rejected token, including subscriptions.
+        if (err.kind === "auth") return;
         // A network blip should not kill a run we are still tracking. Only give
         // up on errors that will not fix themselves.
         if (err.kind === "network") continue;
@@ -189,7 +193,8 @@ async function pollSubscriptions(config) {
     let build;
     try {
       build = await jenkins.getLastBuild(sub.url, config);
-    } catch {
+    } catch (err) {
+      if (err.kind === "auth") return;
       // Off the VPN, renamed, or permissions changed. Keep the existing mark so
       // reconnecting compares against what we last really saw.
       if (marks[sub.id]) next[sub.id] = marks[sub.id];
